@@ -1,5 +1,8 @@
 use nannou::prelude::Pow;
 
+use crate::line::Line;
+
+#[derive(Debug, Clone)]
 pub(crate) struct Ellipse {
     pub(crate) x: f32,
     pub(crate) y: f32,
@@ -55,13 +58,15 @@ impl Ellipse {
     ///
     /// (r * (x - x_0) - i * (k * x + d - y_0))^2 / a^2 + (r * (k * x + d - y_0) + i * (x - x_0))^2 / b^2 - 1
     /// (r * (x - x_0) - e * (k * x + d - y_0))^2 / a^2 + (r * (k * x + d - y_0) + e * (x - x_0))^2 / b^2 - 1
-    pub(crate) fn intersection_line_eq(&self, k: f32, d: f32) -> impl FnOnce(f32) -> f32 {
+    pub(crate) fn intersection_line_eq(&self, line: Line) -> impl FnOnce(f32) -> f32 {
         let x_0 = self.x;
         let y_0 = self.y;
         let a = self.a;
         let b = self.b;
         let r = self.r;
         let i = self.i;
+        let k = line.k;
+        let d = line.d;
         move |x| {
             (r * (x - x_0) - i * (k * x + d - y_0)).pow(2.) / a.pow(2.)
                 + (r * (k * x + d - y_0) + i * (x - x_0)).pow(2.) / b.pow(2.)
@@ -72,14 +77,22 @@ impl Ellipse {
     /// -(4 * (a^2 * (-k^2 * r^2 - 2 * i * k * r - i^2) + b^2 * (-i^2 * k^2 + 2 * i * k * r - r^2) + (r^4 + 2 * i^2 * r^2 + i^4) * (d^2 + 2 * d * (k * x_0 - y_0) + k^2 * x_0^2 - 2 * k * x_0 * y_0 + y_0^2))) / (a^2 * b^2)
     /// -(4 * (a_0^2 * (-k^2 * r_0^2 - 2 * i_0 * k * r_0 - i_0^2) + b_0^2 * (-i_0^2 * k^2 + 2 * i_0 * k * r_0 - r_0^2) + (r_0^4 + 2 * i_0^2 * r_0^2 + i_0^4) * (d^2 + 2 * d * (k * x_0 - y_0) + k^2 * x_0^2 - 2 * k * x_0 * y_0 + y_0^2))) / (a_0^2 * b_0^2)
     /// -(4 * (a_1^2 * (-k^2 * r_1^2 - 2 * i_1 * k * r_1 - i_1^2) + b_1^2 * (-i_1^2 * k^2 + 2 * i_1 * k * r_1 - r_1^2) + (r_1^4 + 2 * i_1^2 * r_1^2 + i_1^4) * (d^2 + 2 * d * (k * x_1 - y_1) + k^2 * x_1^2 - 2 * k * x_1 * y_1 + y_1^2))) / (a_1^2 * b_1^2)
-    pub(crate) fn intersection_discriminant(&self, k: f32, d: f32) -> f32 {
+    pub(crate) fn intersection_discriminant(&self, line: Line) -> f32 {
         let x_0 = self.x;
         let y_0 = self.y;
         let a = self.a;
         let b = self.b;
         let r = self.r;
         let i = self.i;
+        let k = line.k;
+        let d = line.d;
 
-        -(4. * (a.pow(2.) * (-k.pow(2.) * r.pow(2.) - 2. * i * k * r - i.pow(2.)) + b.pow(2.) * (-i.pow(2.) * k.pow(2.) + 2. * i * k * r - r.pow(2.)) + (r.pow(4.) + 2. * i.pow(2.) * r.pow(2.) + i.pow(4.)) * (d.pow(2.) + 2. * d * (k * x_0 - y_0) + k.pow(2.) * x_0.pow(2.) - 2. * k * x_0 * y_0 + y_0.pow(2.)))) / (a.pow(2.) * b.pow(2.))
+        -(4. * (a.pow(2.) * (-k.pow(2.) * r.pow(2.) - 2. * i * k * r - i.pow(2.))
+            + b.pow(2.) * (-i.pow(2.) * k.pow(2.) + 2. * i * k * r - r.pow(2.))
+            + (r.pow(4.) + 2. * i.pow(2.) * r.pow(2.) + i.pow(4.))
+                * (d.pow(2.) + 2. * d * (k * x_0 - y_0) + k.pow(2.) * x_0.pow(2.)
+                    - 2. * k * x_0 * y_0
+                    + y_0.pow(2.))))
+            / (a.pow(2.) * b.pow(2.))
     }
 }

@@ -266,9 +266,9 @@ checksum = "fd16c4719339c4530435d38e511904438d07cce7950afa3718a84ac36c10e89e"
 
 [[package]]
 name = "chromosome"
-version = "0.0.9"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b16dcc56c753ed6641575671cff55878868878d8508d3bddd33e79930a11022"
+checksum = "4f2cd62a0a2c5c6770ff7ec356e6f7e1201a9a9c152eaf2200caca06e97acb99"
 dependencies = [
  "rand 0.8.5",
 ]
@@ -460,6 +460,7 @@ version = "0.1.0"
 dependencies = [
  "chromosome",
  "nannou",
+ "rand 0.8.5",
 ]
 
 [[package]]

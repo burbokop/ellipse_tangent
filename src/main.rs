@@ -1,39 +1,134 @@
-use std::time::Duration;
+use std::ops::Range;
 
 mod ellipse;
+mod line;
+use chromosome::{Chromosome, Fitness, FitnessSelector, SimulationIter};
 use ellipse::Ellipse;
+use line::Line;
+use nannou::prelude::*;
 
 fn deg_to_rad(deg: f32) -> f32 {
     deg * std::f32::consts::PI / 180.
 }
 
-use nannou::{prelude::*};
+#[derive(Debug)]
+struct TangentFitness {
+    ellipse0: Ellipse,
+    ellipse1: Ellipse,
+    max_err: f32
+}
 
-struct Model {
+#[derive(Debug)]
+struct TangentSegmentFitness {
+    ellipse0: Ellipse,
+    ellipse1: Ellipse,
+    max_err: f32
+}
+
+impl Fitness for TangentFitness {
+    type Value = f32;
+
+    fn fitness(&self, chromosome: &Chromosome<Self::Value>) -> Self::Value {
+        let line = Line {
+            k: chromosome.genes[0].tan(),
+            d: chromosome.genes[1],
+        };
+        (self.ellipse0.intersection_discriminant(line).abs()
+            + self.ellipse1.intersection_discriminant(line).abs())
+        .abs()
+    }
+
+    fn is_ideal_fitness(&self, fitness: Self::Value) -> bool {
+        fitness.abs() < self.max_err
+    }
+}
+
+impl Fitness for TangentSegmentFitness {
+    type Value = f32;
+
+    fn fitness(&self, chromosome: &Chromosome<Self::Value>) -> Self::Value {
+        match Line::from_points(
+            chromosome.genes[0],
+            chromosome.genes[1],
+            chromosome.genes[2],
+            chromosome.genes[3],
+        ) {
+            Some(line) => (self.ellipse0.intersection_discriminant(line).abs()
+                + self.ellipse1.intersection_discriminant(line).abs()
+                + self.ellipse0.eq()(chromosome.genes[0], chromosome.genes[1]).abs()
+                + self.ellipse1.eq()(chromosome.genes[2], chromosome.genes[3]).abs())
+            .abs(),
+            None => Self::Value::MAX,
+        }
+    }
+
+    fn is_ideal_fitness(&self, fitness: Self::Value) -> bool {
+        fitness.abs() < self.max_err
+    }
+}
+
+struct Model<R: rand::RngCore> {
     e0: Ellipse,
     e1: Ellipse,
+    sim: SimulationIter<f32, Range<f32>, FitnessSelector<TangentFitness>, R>,
+    population: Vec<Chromosome<f32>>,
 }
 
 fn main() {
     nannou::app(model).update(update).run();
 }
 
-fn model(app: &App) -> Model {
+fn model(app: &App) -> Model<impl rand::RngCore> {
+    let mut rng = rand::thread_rng();
+
     let _w_id = app
         .new_window()
-        .title("OSC Receiver")
+        .title("Genetic algorithm of finding common tangent to two ellipses")
         .size(1000, 480)
-        .view(view)
+        .view(view::<rand::rngs::ThreadRng>)
         .build()
         .unwrap();
 
+    let ellipse0 = Ellipse::new(100., 100., 40., 70., deg_to_rad(15.));
+    let ellipse1 = Ellipse::new(-30., -100., 20., 80., deg_to_rad(300.));
+
+    let initial_renge = -100.0..100.;
+    let chromosome_size = 2;
+
+    let initial_population = (0..8)
+        .into_iter()
+        .map(|_| Chromosome::<f32>::new_random(chromosome_size, initial_renge.clone(), &mut rng));
+
+    let sim: SimulationIter<f32, Range<f32>, _, _> = SimulationIter::new(
+        vec![0.01..0.2, 0.1..20.],
+        0.1,
+        initial_population.collect(),
+        FitnessSelector::from(TangentFitness {
+            ellipse0: ellipse0.clone(),
+            ellipse1: ellipse1.clone(),
+            max_err: 0.0005,
+        }),
+        rng,
+    );
+
+    println!("sim: {:?}", sim);
+
     Model {
-        e0: Ellipse::new(100., 100., 40., 70., deg_to_rad(15.)),
-        e1: Ellipse::new(-30., -100., 20., 80., deg_to_rad(300.)),
+        e0: ellipse0,
+        e1: ellipse1,
+        sim,
+        population: vec![],
     }
 }
 
-fn update(_app: &App, _model: &mut Model, _update: Update) {}
+fn update<R: rand::RngCore>(_: &App, model: &mut Model<R>, _update: Update) {
+    if let Some(population) = model.sim.next() {
+        model.population = population;
+        println!("population: {:?}", model.population);
+    } else {
+        println!("nothing to do");
+    }
+}
 
 fn draw_ellipse(draw: &Draw, ellipse: &Ellipse) {
     draw.ellipse()
@@ -56,49 +151,29 @@ fn draw_ellipse(draw: &Draw, ellipse: &Ellipse) {
     }
 }
 
-fn draw_common_intersections(draw: &Draw, ellipse0: &Ellipse, ellipse1: &Ellipse, t: f32) {
-    let tt = 50;
-    let start = pt2(-400., -400.);
-    let end = pt2(400., 400.);
-
-    for k in -tt as i32..tt as i32 {
-        for d in (start.y as i32..end.y as i32).step_by(10) {
-            let k = 1. / (k as f32);
-            let d = d as f32;
-
-            let p0 = pt2(start.x, k * start.x + d);
-            let p1 = pt2(end.x, k * end.x + d);
-
-            let mut yes = (false, false);
-
-            if ellipse0.intersection_discriminant(k, d).abs() < 1./t.pow(2.) {
-                yes.0 = true;
-            }
-            if ellipse1.intersection_discriminant(k, d).abs() < 1./t.pow(2.) {
-                yes.1 = true;
-            }
-
-            if yes.0 && yes.1 {
-                draw.line().points(p0, p1).color(PURPLE).stroke_weight(2.);
-            }
-        }
-    }
-}
-
-fn view(app: &App, model: &Model, frame: Frame) {
-    // Begin drawing
-    let win = app.window_rect();
-    let t = app.time;
+fn view<R: rand::RngCore>(app: &App, model: &Model<R>, frame: Frame) {
     let draw = app.draw();
-
-    // Clear the background to black.
     draw.background().color(BLACK);
 
     draw_ellipse(&draw, &model.e0);
     draw_ellipse(&draw, &model.e1);
 
-    draw_common_intersections(&draw, &model.e0, &model.e1, t);
+    let start = pt2(-400., -400.);
+    let end = pt2(400., 400.);
 
-    // Write the result of our drawing to the window's frame.
+    //for chromosome in &model.population {
+    //    let p0 = pt2(chromosome.genes[0], chromosome.genes[1]);
+    //    let p1 = pt2(chromosome.genes[2], chromosome.genes[3]);
+    //    draw.line().points(p0, p1).color(GREENYELLOW).stroke_weight(2.);
+    //}
+
+    for chromosome in &model.population {
+        let k = chromosome.genes[0].tan();
+        let d = chromosome.genes[1];
+        let p0 = pt2(start.x, k * start.x + d);
+        let p1 = pt2(end.x, k * end.x + d);
+        draw.line().points(p0, p1).color(PINK).stroke_weight(2.);
+    }
+
     draw.to_frame(app, &frame).unwrap();
 }
