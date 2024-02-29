@@ -1,8 +1,10 @@
-use std::ops::Range;
+use std::{fmt::format, ops::Range};
 
 mod ellipse;
 mod line;
 mod md_array;
+mod utils;
+
 use chromosome::{Chromosome, Fitness, FitnessSelector, SimulationIter};
 use ellipse::Ellipse;
 use line::Line;
@@ -15,10 +17,6 @@ use nannou::{
 use nannou_egui::{self, egui, Egui};
 
 use crate::md_array::MdArray;
-
-fn deg_to_rad(deg: f32) -> f32 {
-    deg * std::f32::consts::PI / 180.
-}
 
 #[derive(Debug)]
 struct TangentFitness {
@@ -132,8 +130,8 @@ fn model(app: &App) -> Model<impl rand::RngCore> {
         rng,
     );
 
-    println!("sim: {:?}", sim);
-    println!("window.rect(): {:?}", window.rect());
+    //println!("sim: {:?}", sim);
+    //println!("window.rect(): {:?}", window.rect());
 
     Model {
         e0: ellipse0,
@@ -151,7 +149,7 @@ fn model(app: &App) -> Model<impl rand::RngCore> {
 
 fn fill_image<R: rand::RngCore>(app: &App, model: &mut Model<R>) {
     let window_rect = app.window_rect();
-    println!("window_rect: {:?}, {}", window_rect, window_rect.x.start);
+    //println!("window_rect: {:?}, {}", window_rect, window_rect.x.start);
 
     let pt_to_img = |pt: Point2| {
         (
@@ -223,9 +221,9 @@ fn fill_image<R: rand::RngCore>(app: &App, model: &mut Model<R>) {
 fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
     if let Some(population) = model.sim.next() {
         model.population = population;
-        println!("population: {:?}", model.population);
+        //println!("population: {:?}", model.population);
     } else {
-        println!("nothing to do");
+        //println!("nothing to do");
     }
 
     {
@@ -234,12 +232,22 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
         egui.set_elapsed_time(update.since_start);
         let ctx = egui.begin_frame();
 
+        let theta = &mut settings.theta;
+
         egui::Window::new("Settings").show(&ctx, |ui| {
             // Scale slider
+            ui.label(format!("E0: {:?}", &model.e0));
+            ui.label(format!("E1: {:?}", &model.e1));
+
             ui.label("Scale:");
             ui.add(egui::Slider::new(&mut settings.scale, 0.1..=1000000.));
             ui.label("K:");
-            ui.add(egui::Slider::new(&mut settings.theta, (0.)..=360.).step_by(1.));
+            ui.add(egui::Slider::new(theta, (0.)..=360.).step_by(1.));
+
+
+            let k = deg_to_rad(*theta).tan();
+            let outer = model.e0.tangent_d_d(&model.e1, k);
+            ui.label(format!("result: {:?}", outer));
         });
     }
 
@@ -321,6 +329,12 @@ fn view<R: rand::RngCore>(app: &App, model: &Model<R>, frame: Frame) {
 
     let e0d = model.e0.tangent_d(k);
     let e1d = model.e1.tangent_d(k);
+
+    println!("e0: {:?}", &model.e0);
+    println!("e1: {:?}", &model.e1);
+
+    println!("e0d: {:?}", e0d);
+    println!("e1d: {:?}", e1d);
 
     draw_line_by_kd(&draw, k, e0d.0).stroke_weight(1.).color(GREEN);
     draw_line_by_kd(&draw, k, e0d.1).stroke_weight(1.).color(LIGHTGREEN);

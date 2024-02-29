@@ -118,4 +118,121 @@ impl Ellipse {
 
         (d_0, d_1)
     }
+
+    pub(crate) fn tangent_d_d(&self, rhs: &Ellipse, k: f32) -> (f32, f32) {
+        let x_0 = self.x;
+        let y_0 = self.y;
+        let a_0 = self.a;
+        let b_0 = self.b;
+        let r_0 = self.r;
+        let i_0 = self.i;
+
+        let x_1 = rhs.x;
+        let y_1 = rhs.y;
+        let a_1 = rhs.a;
+        let b_1 = rhs.b;
+        let r_1 = rhs.r;
+        let i_1 = rhs.i;
+
+        let eq = |left: f32, right: f32| (left - right).abs();
+
+        let discriminant_0 = 4. * (k * x_0 - y_0).pow(2.)
+            - 4. * (k.pow(2.) * x_0.pow(2.) - 2. * k * x_0 * y_0
+                + y_0.pow(2.)
+                + (a_0.pow(2.) * (-k.pow(2.) * r_0.pow(2.) - 2. * i_0 * k * r_0 - i_0.pow(2.))
+                    + b_0.pow(2.) * (-i_0.pow(2.) * k.pow(2.) + 2. * i_0 * k * r_0 - r_0.pow(2.)))
+                    / (r_0.pow(4.) + 2. * i_0.pow(2.) * r_0.pow(2.) + i_0.pow(4.)));
+
+        let discriminant_1 = 4. * (k * x_1 - y_1).pow(2.)
+            - 4. * (k.pow(2.) * x_1.pow(2.) - 2. * k * x_1 * y_1
+                + y_1.pow(2.)
+                + (a_1.pow(2.) * (-k.pow(2.) * r_1.pow(2.) - 2. * i_1 * k * r_1 - i_1.pow(2.))
+                    + b_1.pow(2.) * (-i_1.pow(2.) * k.pow(2.) + 2. * i_1 * k * r_1 - r_1.pow(2.)))
+                    / (r_1.pow(4.) + 2. * i_1.pow(2.) * r_1.pow(2.) + i_1.pow(4.)));
+
+        let eq0 = eq(
+            2. * (k * x_1 - y_1) - 2. * (k * x_0 - y_0),
+            discriminant_1.sqrt() - discriminant_0.sqrt(),
+        );
+
+        let eq1 = eq(
+            -2. * (k * x_1 - y_1) - discriminant_1.sqrt(),
+            -2. * (k * x_0 - y_0) - discriminant_0.sqrt(),
+        );
+
+        (eq0, eq1)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::utils::deg_to_rad;
+
+    use super::Ellipse;
+
+    macro_rules! assert_eq_err {
+        ($x: expr, $y: expr, $err: expr) => {
+            let x = $x;
+            let y = $y;
+            let err = $err;
+
+            let d = (x - y).abs();
+            if d > err {
+                panic!(
+                    "{} and {} have difference equal {} which exceeds {}",
+                    x, y, d, err
+                );
+            }
+        };
+    }
+
+    static E0: Ellipse = Ellipse {
+        x: 100.0,
+        y: 100.0,
+        a: 40.0,
+        b: 70.0,
+        r: 0.9659258,
+        i: 0.25881904,
+    };
+
+    static E1: Ellipse = Ellipse {
+        x: -30.0,
+        y: -100.0,
+        a: 20.0,
+        b: 80.0,
+        r: 0.50000036,
+        i: -0.8660252,
+    };
+
+    #[test]
+    fn tangent_d_d_0() {
+        let k = deg_to_rad(66.).tan();
+        let r = E0.tangent_d_d(&E1, k);
+        assert_eq_err!(r.0, 373., 2.);
+        assert_eq_err!(r.1, 5., 2.);
+    }
+
+    #[test]
+    fn tangent_d_d_1() {
+        let k = deg_to_rad(50.).tan();
+        let r = E0.tangent_d_d(&E1, k);
+        assert_eq_err!(r.0, 9., 2.);
+        assert_eq_err!(r.1, 189., 2.);
+    }
+
+    #[test]
+    fn tangent_d_d_2() {
+        let k = deg_to_rad(85.).tan();
+        let r = E0.tangent_d_d(&E1, k);
+        assert_eq_err!(r.0, 3300., 2.);
+        assert_eq_err!(r.1, 1842., 2.);
+    }
+
+    #[test]
+    fn tangent_d_d_3() {
+        let k = deg_to_rad(25.).tan();
+        let r = E0.tangent_d_d(&E1, k);
+        assert_eq_err!(r.0, 263., 2.);
+        assert_eq_err!(r.1, 294., 2.);
+    }
 }
