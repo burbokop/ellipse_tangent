@@ -74,6 +74,7 @@ impl Ellipse {
         }
     }
 
+    /// returns discriminant of intersection equesion with `line`
     /// -(4 * (a^2 * (-k^2 * r^2 - 2 * i * k * r - i^2) + b^2 * (-i^2 * k^2 + 2 * i * k * r - r^2) + (r^4 + 2 * i^2 * r^2 + i^4) * (d^2 + 2 * d * (k * x_0 - y_0) + k^2 * x_0^2 - 2 * k * x_0 * y_0 + y_0^2))) / (a^2 * b^2)
     /// -(4 * (a_0^2 * (-k^2 * r_0^2 - 2 * i_0 * k * r_0 - i_0^2) + b_0^2 * (-i_0^2 * k^2 + 2 * i_0 * k * r_0 - r_0^2) + (r_0^4 + 2 * i_0^2 * r_0^2 + i_0^4) * (d^2 + 2 * d * (k * x_0 - y_0) + k^2 * x_0^2 - 2 * k * x_0 * y_0 + y_0^2))) / (a_0^2 * b_0^2)
     /// -(4 * (a_1^2 * (-k^2 * r_1^2 - 2 * i_1 * k * r_1 - i_1^2) + b_1^2 * (-i_1^2 * k^2 + 2 * i_1 * k * r_1 - r_1^2) + (r_1^4 + 2 * i_1^2 * r_1^2 + i_1^4) * (d^2 + 2 * d * (k * x_1 - y_1) + k^2 * x_1^2 - 2 * k * x_1 * y_1 + y_1^2))) / (a_1^2 * b_1^2)
@@ -94,5 +95,27 @@ impl Ellipse {
                     - 2. * k * x_0 * y_0
                     + y_0.pow(2.))))
             / (a.pow(2.) * b.pow(2.))
+    }
+
+    /// returns `d` by given `k` where `y = kx + d` is a tangent to ellipse
+    pub(crate) fn tangent_d(&self, k: f32) -> (f32, f32) {
+        let x_0 = self.x;
+        let y_0 = self.y;
+        let a = self.a;
+        let b = self.b;
+        let r = self.r;
+        let i = self.i;
+
+        let discriminant = 4. * (k * x_0 - y_0).pow(2.)
+            - 4. * (k.pow(2.) * x_0.pow(2.) - 2. * k * x_0 * y_0
+                + y_0.pow(2.)
+                + (a.pow(2.) * (-k.pow(2.) * r.pow(2.) - 2. * i * k * r - i.pow(2.))
+                    + b.pow(2.) * (-i.pow(2.) * k.pow(2.) + 2. * i * k * r - r.pow(2.)))
+                    / (r.pow(4.) + 2. * i.pow(2.) * r.pow(2.) + i.pow(4.)));
+
+        let d_0 = (-2. * (k * x_0 - y_0) + discriminant.sqrt()) / 2.;
+        let d_1 = (-2. * (k * x_0 - y_0) - discriminant.sqrt()) / 2.;
+
+        (d_0, d_1)
     }
 }

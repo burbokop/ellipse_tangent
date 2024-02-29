@@ -2,10 +2,19 @@ use std::ops::Range;
 
 mod ellipse;
 mod line;
+mod md_array;
 use chromosome::{Chromosome, Fitness, FitnessSelector, SimulationIter};
 use ellipse::Ellipse;
 use line::Line;
-use nannou::prelude::*;
+use nannou::{
+    color::Pixel,
+    draw::{primitive::{self, Texture}, Drawing},
+    image::{DynamicImage, GenericImage as _, RgbaImage},
+    prelude::*,
+};
+use nannou_egui::{self, egui, Egui};
+
+use crate::md_array::MdArray;
 
 fn deg_to_rad(deg: f32) -> f32 {
     deg * std::f32::consts::PI / 180.
@@ -15,14 +24,14 @@ fn deg_to_rad(deg: f32) -> f32 {
 struct TangentFitness {
     ellipse0: Ellipse,
     ellipse1: Ellipse,
-    max_err: f32
+    max_err: f32,
 }
 
 #[derive(Debug)]
 struct TangentSegmentFitness {
     ellipse0: Ellipse,
     ellipse1: Ellipse,
-    max_err: f32
+    max_err: f32,
 }
 
 impl Fitness for TangentFitness {
@@ -67,11 +76,19 @@ impl Fitness for TangentSegmentFitness {
     }
 }
 
+struct Settings {
+    theta: f32,
+    scale: f32,
+}
+
 struct Model<R: rand::RngCore> {
     e0: Ellipse,
     e1: Ellipse,
     sim: SimulationIter<f32, Range<f32>, FitnessSelector<TangentFitness>, R>,
     population: Vec<Chromosome<f32>>,
+    settings: Settings,
+    egui: Egui,
+    image: DynamicImage,
 }
 
 fn main() {
@@ -81,13 +98,17 @@ fn main() {
 fn model(app: &App) -> Model<impl rand::RngCore> {
     let mut rng = rand::thread_rng();
 
-    let _w_id = app
+    let window_id = app
         .new_window()
         .title("Genetic algorithm of finding common tangent to two ellipses")
         .size(1000, 480)
         .view(view::<rand::rngs::ThreadRng>)
+        .raw_event(raw_window_event::<rand::rngs::ThreadRng>)
         .build()
         .unwrap();
+
+    let window = app.window(window_id).unwrap();
+    let egui = Egui::from_window(&window);
 
     let ellipse0 = Ellipse::new(100., 100., 40., 70., deg_to_rad(15.));
     let ellipse1 = Ellipse::new(-30., -100., 20., 80., deg_to_rad(300.));
@@ -112,22 +133,139 @@ fn model(app: &App) -> Model<impl rand::RngCore> {
     );
 
     println!("sim: {:?}", sim);
+    println!("window.rect(): {:?}", window.rect());
 
     Model {
         e0: ellipse0,
         e1: ellipse1,
         sim,
         population: vec![],
+        settings: Settings { theta: 0., scale: 1. },
+        egui,
+        image: DynamicImage::ImageRgba8(RgbaImage::new(
+            window.rect().w() as u32,
+            window.rect().h() as u32,
+        )),
     }
 }
 
-fn update<R: rand::RngCore>(_: &App, model: &mut Model<R>, _update: Update) {
+fn fill_image<R: rand::RngCore>(app: &App, model: &mut Model<R>) {
+    let window_rect = app.window_rect();
+    println!("window_rect: {:?}, {}", window_rect, window_rect.x.start);
+
+    let pt_to_img = |pt: Point2| {
+        (
+            (pt.x - window_rect.x.start) as usize,
+            (pt.y - window_rect.y.start) as usize,
+        )
+    };
+    let pt_from_img = |x: usize, y: usize| {
+        pt2(
+            x as f32 + window_rect.x.start,
+            -(y as f32) - window_rect.y.start,
+        )
+    };
+
+    let mut array: MdArray<f32, 2> =
+        MdArray::new(0., window_rect.w() as usize, window_rect.h() as usize);
+
+    let k = deg_to_rad(model.settings.theta).tan();
+    for y in (0..array.height()).step_by(4) {
+        for x in (0..array.width()).step_by(4) {
+            let pt = pt_from_img(x, y);
+
+
+
+
+
+            //*array.at_mut(x, y) = model.e0.eq()(pt.x, pt.y);
+
+
+            *array.at_mut(x, y) = model
+                    .e0
+                    .intersection_discriminant(Line { k, d: pt.y - k * pt.x })
+                * model
+                    .e1
+                    .intersection_discriminant(Line { k, d: pt.y - k * pt.x })
+        }
+    }
+
+    //println!("BEFORE: {:?}", &array.raw()[0..256]);
+    let array = array.partially_normalized();
+    //println!("AFTER: {:?}", &array.raw()[0..256]);
+
+    //let mut image = RgbaImage::new(window_rect.w() as u32, window_rect.h() as u32);
+    for y in 0..array.height() {
+        for x in 0..array.width() {
+            let v = *array.at(x, y);
+            let v_abs = (v.abs() * 255. * model.settings.scale) as u8;
+            model.image.put_pixel(x as u32, y as u32, nannou::image::Rgba(if v < 0. {
+                [255, 0, 0, v_abs]
+            } else {
+                [0, 255, 0, v_abs]
+            }));
+
+            //if  > 0
+            //let gray = (array.at(x, y) * 255.) as u8;
+            //
+            //let argb = (array.at(x, y) * (0x00ffffff as f32)) as u32;
+            //let a = (argb << 24) as u8;
+            //let r = (argb << 16) as u8;
+            //let g = (argb << 8) as u8;
+            //let b = (argb << 0) as u8;
+            //
+            ////*image.get_pixel_mut(x as u32, y as u32) = nannou::image::Rgba([r,g,b,127]);
+            //*image.get_pixel_mut(x as u32, y as u32) = nannou::image::Rgba([gray,0,0,127]);
+        }
+    }
+}
+
+fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
     if let Some(population) = model.sim.next() {
         model.population = population;
         println!("population: {:?}", model.population);
     } else {
         println!("nothing to do");
     }
+
+    {
+        let egui = &mut model.egui;
+        let settings = &mut model.settings;
+        egui.set_elapsed_time(update.since_start);
+        let ctx = egui.begin_frame();
+
+        egui::Window::new("Settings").show(&ctx, |ui| {
+            // Scale slider
+            ui.label("Scale:");
+            ui.add(egui::Slider::new(&mut settings.scale, 0.1..=1000000.));
+            ui.label("K:");
+            ui.add(egui::Slider::new(&mut settings.theta, (0.)..=360.).step_by(1.));
+        });
+    }
+
+    fill_image(app, model);
+}
+
+fn draw_line_by_kd(draw: &Draw, k: f32, d: f32) -> Drawing<primitive::Line> {
+    let start = pt2(-400., -400.);
+    let end = pt2(400., 400.);
+
+    let x0 = start.x;
+    let x1 = end.x;
+
+    let y0 = k*x0+d;
+    let y1 = k*x1+d;
+
+    draw.line().points(pt2(x0, y0), pt2(x1, y1))
+}
+
+fn raw_window_event<R: rand::RngCore>(
+    _app: &App,
+    model: &mut Model<R>,
+    event: &nannou::winit::event::WindowEvent,
+) {
+    // Let egui handle things like keyboard and mouse input.
+    model.egui.handle_raw_event(event);
 }
 
 fn draw_ellipse(draw: &Draw, ellipse: &Ellipse) {
@@ -139,16 +277,15 @@ fn draw_ellipse(draw: &Draw, ellipse: &Ellipse) {
         .color(WHITE)
         .rotate(-f32::atan2(ellipse.i, ellipse.r));
 
-    for y in (ellipse.y - ellipse.b * 4.) as i32..(ellipse.y + ellipse.b * 4.) as i32 {
-        for x in (ellipse.x - ellipse.a * 16.) as i32..(ellipse.x + ellipse.a * 16.) as i32 {
-            let x = x as f32;
-            let y = y as f32;
-
-            if ellipse.eq()(x, y).abs() < 0.04 {
-                draw.ellipse().color(DARKCYAN).radius(1.).x(x).y(y);
-            }
-        }
-    }
+    //for y in (ellipse.y - ellipse.b * 4.) as i32..(ellipse.y + ellipse.b * 4.) as i32 {
+    //    for x in (ellipse.x - ellipse.a * 16.) as i32..(ellipse.x + ellipse.a * 16.) as i32 {
+    //        let x = x as f32;
+    //        let y = y as f32;
+    //        if ellipse.eq()(x, y).abs() < 0.04 {
+    //            draw.ellipse().color(DARKCYAN).radius(1.).x(x).y(y);
+    //        }
+    //    }
+    //}
 }
 
 fn view<R: rand::RngCore>(app: &App, model: &Model<R>, frame: Frame) {
@@ -175,5 +312,21 @@ fn view<R: rand::RngCore>(app: &App, model: &Model<R>, frame: Frame) {
         draw.line().points(p0, p1).color(PINK).stroke_weight(2.);
     }
 
+    let texture = wgpu::Texture::from_image(app, &model.image);
+
+    draw.texture(&texture);
+
+
+    let k = deg_to_rad(model.settings.theta).tan();
+
+    let e0d = model.e0.tangent_d(k);
+    let e1d = model.e1.tangent_d(k);
+
+    draw_line_by_kd(&draw, k, e0d.0).stroke_weight(1.).color(GREEN);
+    draw_line_by_kd(&draw, k, e0d.1).stroke_weight(1.).color(LIGHTGREEN);
+    draw_line_by_kd(&draw, k, e1d.0).stroke_weight(1.).color(BLUE);
+    draw_line_by_kd(&draw, k, e1d.1).stroke_weight(1.).color(LIGHTBLUE);
+
     draw.to_frame(app, &frame).unwrap();
+    model.egui.draw_to_frame(&frame).unwrap();
 }
