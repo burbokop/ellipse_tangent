@@ -296,6 +296,28 @@ fn draw_ellipse(draw: &Draw, ellipse: &Ellipse) {
     //}
 }
 
+fn dd_plot<R: rand::RngCore>(draw: &Draw, model: &Model<R>) {
+
+    let mut prev_k = 0.;
+    let mut prev = (0.,0.);
+    let mut has_prev: bool = false;
+    for i in -500..500 {
+        let k = i as f32 / 100.;
+        let x = i as f32;
+        let v = model.e0.tangent_d_d(&model.e1, k);
+
+        if has_prev {
+            draw.line().points(pt2(prev_k, prev.0), pt2(x, v.0)).color(RED);
+            draw.line().points(pt2(prev_k, prev.1), pt2(x, v.1)).color(LIGHTPINK);
+        }
+
+        prev_k = x;
+        prev = v;
+        has_prev= true;
+    }
+
+}
+
 fn view<R: rand::RngCore>(app: &App, model: &Model<R>, frame: Frame) {
     let draw = app.draw();
     draw.background().color(BLACK);
@@ -340,6 +362,8 @@ fn view<R: rand::RngCore>(app: &App, model: &Model<R>, frame: Frame) {
     draw_line_by_kd(&draw, k, e0d.1).stroke_weight(1.).color(LIGHTGREEN);
     draw_line_by_kd(&draw, k, e1d.0).stroke_weight(1.).color(BLUE);
     draw_line_by_kd(&draw, k, e1d.1).stroke_weight(1.).color(LIGHTBLUE);
+
+    //dd_plot(&draw, &model);
 
     draw.to_frame(app, &frame).unwrap();
     model.egui.draw_to_frame(&frame).unwrap();

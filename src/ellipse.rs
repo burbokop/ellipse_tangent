@@ -134,21 +134,40 @@ impl Ellipse {
         let r_1 = rhs.r;
         let i_1 = rhs.i;
 
+        let q_0 = b_0 / (r_0.pow(2.) + i_0.pow(2.));
+        let q_1 = b_1 / (r_1.pow(2.) + i_1.pow(2.));
+
         let eq = |left: f32, right: f32| (left - right).abs();
 
-        let discriminant_0 = 4. * (k * x_0 - y_0).pow(2.)
-            - 4. * (k.pow(2.) * x_0.pow(2.) - 2. * k * x_0 * y_0
-                + y_0.pow(2.)
-                + (a_0.pow(2.) * (-k.pow(2.) * r_0.pow(2.) - 2. * i_0 * k * r_0 - i_0.pow(2.))
-                    + b_0.pow(2.) * (-i_0.pow(2.) * k.pow(2.) + 2. * i_0 * k * r_0 - r_0.pow(2.)))
-                    / (r_0.pow(4.) + 2. * i_0.pow(2.) * r_0.pow(2.) + i_0.pow(4.)));
+        let discriminant_0
+            = a_0.pow(2.) * r_0.pow(2.) * k.pow(2.)
+            + q_0.pow(2.) * i_0.pow(2.) * k.pow(2.)
 
-        let discriminant_1 = 4. * (k * x_1 - y_1).pow(2.)
-            - 4. * (k.pow(2.) * x_1.pow(2.) - 2. * k * x_1 * y_1
-                + y_1.pow(2.)
-                + (a_1.pow(2.) * (-k.pow(2.) * r_1.pow(2.) - 2. * i_1 * k * r_1 - i_1.pow(2.))
-                    + b_1.pow(2.) * (-i_1.pow(2.) * k.pow(2.) + 2. * i_1 * k * r_1 - r_1.pow(2.)))
-                    / (r_1.pow(4.) + 2. * i_1.pow(2.) * r_1.pow(2.) + i_1.pow(4.)));
+            + a_0.pow(2.) * 2. * i_0 * k * r_0
+            - q_0.pow(2.) * 2. * i_0 * k * r_0
+
+            + q_0.pow(2.) * r_0.pow(2.)
+            + a_0.pow(2.) * i_0.pow(2.);
+
+        //let discriminant_0
+        //    = (a_0 * (r_0 * k + i_0)).pow(2.)
+        //    + (q_0 * (i_0 * k - r_0)).pow(2.);
+
+        // (a^2 + b^2).sqrt() - (c^2 + d^2).sqrt() = z;
+        // (a^2 + b^2) + (c^2 + d^2) - (a^2 + b^2).sqrt() * (c^2 + d^2).sqrt() = z^2
+        // (a^2 + b^2 + c^2 + d^2 - z^2)^2 = (a^2 + b^2)(c^2 + d^2)
+        //
+
+        let discriminant_1
+            = a_1.pow(2.) * (r_1.pow(2.) * k.pow(2.) + 2. * i_1 * k * r_1 + i_1.pow(2.))
+            + q_1.pow(2.) * (i_1.pow(2.) * k.pow(2.) - 2. * i_1 * k * r_1 + r_1.pow(2.));
+
+        //let discriminant_1
+        //    = (a_1 * (r_1 * k + i_1)).pow(2.)
+        //    + (q_1 * (i_1 * k - r_1)).pow(2.);
+
+        // a^2 + b^2 / c^2
+        // ((ac)^2 + b^2) / c^2
 
         let d_d = 4. * (k * x_1 - y_1).pow(2.)
             - 4. * (k.pow(2.) * x_1.pow(2.) - 2. * k * x_1 * y_1
@@ -168,20 +187,31 @@ impl Ellipse {
         //c.pow(2.) - a - b = 2 * a.sqrt() * b.sqrt()
         //(c.pow(2.) - a - b).pow(2.) = 4 * a * b
         //c^4 - 2c^2(a - b) + (a - b)^2 = 4 * a * b
-        //c^4 - 2ac^2 - 2bc^2 + a^2 - 2ab + b^2 - 4 * a * b = 0
-        //
+        //c^4 - 2ac^2 - 2bc^2 + a^2 - 2ab + b^2 - 4ab = 0
+        //c^4 - 2ac^2 - 2bc^2 + a^2 + b^2 - 6ab = 0
+
+        //c = a.sqrt() - b.sqrt();
+        //c^2 = a + b - 2 * a.sqrt() * b.sqrt()
+        //c^2 - a - b = - 2 * a.sqrt() * b.sqrt()
+        //a + b - c^2 = 2 * a.sqrt() * b.sqrt()
+        //(a + b)^2 - (a + b)c^2 + c^4 = 4ab
+        //a^2 + b^2 + 2ab - ac^2 - bc^2 + c^4 = 4ab
+        //a^2 + b^2 - 2ab - ac^2 - bc^2 + c^4 = 0
 
         let eq0 = eq(
-            2. * (k * (x_1 - x_0) + y_0 - y_1),
+            k * (x_1 - x_0) + y_0 - y_1,
             discriminant_1.sqrt() - discriminant_0.sqrt(),
         );
 
         let eq1 = eq(
-            2. * (k * (x_0 - x_1) + y_1 - y_0),
+            k * (x_0 - x_1) + y_1 - y_0,
             discriminant_1.sqrt() - discriminant_0.sqrt(),
         );
 
-        (eq0, eq1)
+        (
+            eq0 * 2.,
+            eq1 * 2.
+        )
     }
 }
 
