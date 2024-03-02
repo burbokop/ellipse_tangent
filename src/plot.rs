@@ -1,5 +1,5 @@
 use nannou::{
-    color::{IntoLinSrgba, BLACK, BLUE, LIGHTBLUE, LIGHTPINK, RED, YELLOW},
+    color::{IntoLinSrgba, BLACK, BLUE, LIGHTBLUE, LIGHTPINK, RED, VIOLET, YELLOW},
     draw::properties::ColorScalar,
     event::{ElementState, MouseButton},
     geom::pt2,
@@ -8,7 +8,7 @@ use nannou::{
     App, Draw, Frame,
 };
 
-use crate::Model;
+use crate::{utils::deg_to_rad, Model};
 
 pub fn new_plot_window(app: &App) -> Id {
     app.new_window()
@@ -67,6 +67,7 @@ fn draw_plot<C>(
     fun: impl Fn(f32) -> (f32, f32),
     colors: [C; 2],
     magnification: (f32, f32),
+    current_k: f32
 ) where
     C: IntoLinSrgba<ColorScalar> + Clone,
 {
@@ -92,6 +93,23 @@ fn draw_plot<C>(
         prev = v;
         has_prev = true;
     }
+
+    let current_v = fun(current_k);
+    let current_x = current_k * magnification.0;
+    let current_y = (current_v.0 * magnification.1, current_v.1 * magnification.1);
+
+    draw.ellipse()
+        .radius(3.)
+        .x(current_x)
+        .y(current_y.0)
+        .color(colors[0].clone());
+
+    draw.ellipse()
+        .radius(3.)
+        .x(current_x)
+        .y(current_y.1)
+        .color(colors[1].clone());
+
 }
 
 fn view<R: rand::RngCore>(app: &App, model: &Model<R>, frame: Frame) {
@@ -99,17 +117,21 @@ fn view<R: rand::RngCore>(app: &App, model: &Model<R>, frame: Frame) {
     draw.background().color(BLACK);
     let rect = app.window(model.windows.plot_window).unwrap().rect();
 
+    let k = deg_to_rad(model.settings.theta).tan();
+
     draw_plot(
         &draw,
         |k| model.e0.ellipse.outer_tangents_fun(&model.e1.ellipse, k),
         [RED, LIGHTPINK],
         model.plot_magnification,
+        k
     );
     draw_plot(
         &draw,
         |k| model.e0.ellipse.tangent_k_alg(&model.e1.ellipse, k),
         [BLUE, LIGHTBLUE],
         model.plot_magnification,
+        k
     );
 
     draw.line()
