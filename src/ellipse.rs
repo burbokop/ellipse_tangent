@@ -1,3 +1,5 @@
+use std::mem::Discriminant;
+
 use nannou::prelude::Pow;
 
 use crate::line::Line;
@@ -139,15 +141,11 @@ impl Ellipse {
 
         let eq = |left: f32, right: f32| (left - right).abs();
 
-        let discriminant_0
-            = a_0.pow(2.) * r_0.pow(2.) * k.pow(2.)
-            + q_0.pow(2.) * i_0.pow(2.) * k.pow(2.)
+        let f_0 = ((a_0 * r_0).pow(2.) + (q_0 * i_0).pow(2.)).sqrt();
+        let g_0 = 2. * i_0 * r_0 * (a_0 - q_0) * (a_0 + q_0);
+        let h_0 = (a_0 * i_0).pow(2.) + (q_0 * r_0).pow(2.);
 
-            + a_0.pow(2.) * 2. * i_0 * k * r_0
-            - q_0.pow(2.) * 2. * i_0 * k * r_0
-
-            + q_0.pow(2.) * r_0.pow(2.)
-            + a_0.pow(2.) * i_0.pow(2.);
+        let discriminant_0 = (k * f_0).pow(2.) + k * g_0 + h_0;
 
         //let discriminant_0
         //    = (a_0 * (r_0 * k + i_0)).pow(2.)
@@ -158,9 +156,11 @@ impl Ellipse {
         // (a^2 + b^2 + c^2 + d^2 - z^2)^2 = (a^2 + b^2)(c^2 + d^2)
         //
 
-        let discriminant_1
-            = a_1.pow(2.) * (r_1.pow(2.) * k.pow(2.) + 2. * i_1 * k * r_1 + i_1.pow(2.))
-            + q_1.pow(2.) * (i_1.pow(2.) * k.pow(2.) - 2. * i_1 * k * r_1 + r_1.pow(2.));
+        let f_1 = a_1.pow(2.) * r_1.pow(2.) + q_1.pow(2.) * i_1.pow(2.);
+        let g_1 = 2. * i_1 * r_1 * (a_1.pow(2.) - q_1.pow(2.));
+        let h_1 = a_1.pow(2.) * i_1.pow(2.) + q_1.pow(2.) * r_1.pow(2.);
+
+        let discriminant_1 = k.pow(2.) * f_1 + k * g_1 + h_1;
 
         //let discriminant_1
         //    = (a_1 * (r_1 * k + i_1)).pow(2.)
@@ -198,10 +198,24 @@ impl Ellipse {
         //a^2 + b^2 + 2ab - ac^2 - bc^2 + c^4 = 4ab
         //a^2 + b^2 - 2ab - ac^2 - bc^2 + c^4 = 0
 
+        let rhs = (k.pow(2.) * f_1 + k * g_1 + h_1).sqrt() - (k.pow(2.) * f_0 + k * g_0 + h_0).sqrt();
+
+        let eq0 = eq(
+            k * (x_1 - x_0) + y_0 - y_1,
+            rhs,
+        );
+
+
+        let eq1 = eq(
+            k * (x_0 - x_1) + y_1 - y_0,
+            rhs,
+        );
+
         let eq0 = eq(
             k * (x_1 - x_0) + y_0 - y_1,
             discriminant_1.sqrt() - discriminant_0.sqrt(),
         );
+
 
         let eq1 = eq(
             k * (x_0 - x_1) + y_1 - y_0,
