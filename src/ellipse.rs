@@ -252,16 +252,14 @@ impl Ellipse {
         let rhs =
             (k.pow(2.) * f_1 + k * g_1 + h_1).sqrt() - (k.pow(2.) * f_0 + k * g_0 + h_0).sqrt();
 
-        let try_0
-            = (k.pow(2.) * f_1 + k * g_1 + h_1).pow(2.)
+        let try_0 = (k.pow(2.) * f_1 + k * g_1 + h_1).pow(2.)
             + (k.pow(2.) * f_0 + k * g_0 + h_0).pow(2.)
             - 2. * (k.pow(2.) * f_1 + k * g_1 + h_1) * (k.pow(2.) * f_0 + k * g_0 + h_0)
             - 2. * (k.pow(2.) * f_1 + k * g_1 + h_1) * (k * (x_1 - x_0) + y_0 - y_1).pow(2.)
             - 2. * (k.pow(2.) * f_0 + k * g_0 + h_0) * (k * (x_1 - x_0) + y_0 - y_1).pow(2.)
             + (k * (x_1 - x_0) + y_0 - y_1).pow(4.);
 
-        let try_1
-            = (k.pow(2.) * f_1 + k * g_1 + h_1).pow(2.)
+        let try_1 = (k.pow(2.) * f_1 + k * g_1 + h_1).pow(2.)
             + (k.pow(2.) * f_0 + k * g_0 + h_0).pow(2.)
             - 2. * (k.pow(2.) * f_1 + k * g_1 + h_1) * (k.pow(2.) * f_0 + k * g_0 + h_0)
             - 2. * (k.pow(2.) * f_1 + k * g_1 + h_1) * (k * (x_0 - x_1) + y_1 - y_0).pow(2.)
@@ -282,7 +280,6 @@ impl Ellipse {
         //     - 2. * ((a_0 * (r_0 * k + i_0)).pow(2.) + (q_0 * (i_0 * k - r_0)).pow(2.)) * (k * (x_0 - x_1) + y_1 - y_0).pow(2.)
         //     + (k * (x_0 - x_1) + y_1 - y_0).pow(4.);
 
-
         let discriminant_0 = (a_0 * (r_0 * k + i_0)).pow(2.) + (q_0 * (i_0 * k - r_0)).pow(2.);
         let discriminant_1 = (a_1 * (r_1 * k + i_1)).pow(2.) + (q_1 * (i_1 * k - r_1)).pow(2.);
 
@@ -293,14 +290,49 @@ impl Ellipse {
         //- 2. * b * c.pow(2.)
         //+ c.pow(4.)
 
-        let eq0 = eq((k * (x_1 - x_0) + y_0 - y_1).pow(2.), ((k.pow(2.) * f_1 + k * g_1 + h_1).sqrt() - (k.pow(2.) * f_0 + k * g_0 + h_0).sqrt()).pow(2.));
+        let eq0 = eq(
+            (k * (x_1 - x_0) + y_0 - y_1).pow(2.),
+            ((k.pow(2.) * f_1 + k * g_1 + h_1).sqrt() - (k.pow(2.) * f_0 + k * g_0 + h_0).sqrt())
+                .pow(2.),
+        );
 
+        (k * (x_0 - x_1) + y_1 - y_0).pow(2.);
+        k.pow(2.) * (x_0 - x_1).pow(2.) + 2. * k * (x_0 - x_1) * (y_1 - y_0) + (y_1 - y_0).pow(2.);
 
-        let eq1 = if ((k.pow(2.) * f_1 + k * g_1 + h_1) + (k.pow(2.) * f_0 + k * g_0 + h_0) - (k * (x_0 - x_1) + y_1 - y_0).pow(2.)) >= 0. {
-            eq(
-                ((k.pow(2.) * f_1 + k * g_1 + h_1) + (k.pow(2.) * f_0 + k * g_0 + h_0) - (k * (x_0 - x_1) + y_1 - y_0).pow(2.)).pow(2.),
-                4. * (k.pow(2.) * f_1 + k * g_1 + h_1) * (k.pow(2.) * f_0 + k * g_0 + h_0)
-            )
+        let j = f_1 + f_0 - (x_0 - x_1).pow(2.);
+        let w = g_1 + g_0 - 2. * (x_0 - x_1) * (y_1 - y_0);
+        let l = h_1 + h_0 - (y_1 - y_0).pow(2.);
+
+        (k.pow(2.) * j + k * w + l).pow(2.);
+        k.pow(4.) * j.pow(2.) + 2. * k.pow(2.) * j * (k * w + l) + (k * w + l).pow(2.);
+
+        (k.pow(2.) * f_1 + k * g_1 + h_1) * (k.pow(2.) * f_0 + k * g_0 + h_0);
+
+        //= k.pow(2.) * f_1 * k.pow(2.) * f_0
+        //+ k.pow(2.) * f_1 * k * g_0
+        //+ k.pow(2.) * f_1 * h_0
+        //+ k * g_1 * k.pow(2.) * f_0
+        //+ k * g_1 * k * g_0
+        //+ k * g_1 * h_0
+        //+ h_1 * k.pow(2.) * f_0
+        //+ h_1 * k * g_0
+        //+ h_1 * h_0
+
+        let eq1 = if (k.pow(2.) * j + k * w + l) >= 0. {
+            let o = j.pow(2.) - 4. * f_1 * f_0;
+            let p = 2. * j * w - 4. * f_1 * g_0 - 4. * f_0 * g_1;
+            let v = 2. * j * l + w.pow(2.) - 4. * f_1 * h_0 - 4. * g_1 * g_0 - 4. * h_1 * f_0;
+            let u = 2. * w * l - 4. * g_1 * h_0 - 4. * h_1 * g_0;
+            let m = l.pow(2.) - 4. * h_1 * h_0;
+
+            let final_val
+            = k.pow(4.) * o
+            + k.pow(3.) * p
+            + k.pow(2.) * v
+            + k * u
+            + m;
+
+            eq(final_val, 0.)
         } else {
             f32::MAX
         };

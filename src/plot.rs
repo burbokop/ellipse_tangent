@@ -1,7 +1,9 @@
 use nannou::{
     color::{IntoLinSrgba, BLACK, BLUE, LIGHTBLUE, LIGHTPINK, RED, YELLOW},
     draw::properties::ColorScalar,
+    event::{ElementState, MouseButton},
     geom::pt2,
+    math::num_traits::Pow,
     window::Id,
     App, Draw, Frame,
 };
@@ -13,22 +15,69 @@ pub fn new_plot_window(app: &App) -> Id {
         .title("window b")
         .size(500, 500)
         .view(view::<rand::rngs::ThreadRng>)
+        .raw_event(raw_window_event::<rand::rngs::ThreadRng>)
         .build()
         .unwrap()
 }
 
-fn draw_plot<C>(draw: &Draw, fun: impl Fn(f32) -> (f32, f32), colors: [C; 2])
-where
+fn raw_window_event<R: rand::RngCore>(
+    app: &App,
+    model: &mut Model<R>,
+    event: &nannou::winit::event::WindowEvent,
+) {
+    if let Some(window) = app.window(model.windows.plot_window) {
+        let window_rect = window.rect();
+        let window_scale_factor = window.scale_factor();
+
+        match event {
+            nannou::winit::event::WindowEvent::MouseWheel {
+                device_id,
+                delta,
+                phase,
+                modifiers,
+            } => {
+                let sensitivity = 1.1_f32;
+                match delta {
+                    nannou::event::MouseScrollDelta::LineDelta(_, y) => {
+                        if model.plot_magnification_change_axis_y {
+                            model.plot_magnification.0 *= sensitivity.pow(y)
+                        } else {
+                            model.plot_magnification.1 *= sensitivity.pow(y)
+                        }
+                    }
+                    nannou::event::MouseScrollDelta::PixelDelta(_) => todo!(),
+                }
+            }
+            nannou::winit::event::WindowEvent::MouseInput {
+                device_id,
+                state,
+                button,
+                modifiers,
+            } => match state {
+                ElementState::Pressed => model.plot_magnification_change_axis_y = true,
+                ElementState::Released => model.plot_magnification_change_axis_y = false,
+            },
+            _ => {}
+        }
+    }
+}
+
+fn draw_plot<C>(
+    draw: &Draw,
+    fun: impl Fn(f32) -> (f32, f32),
+    colors: [C; 2],
+    magnification: (f32, f32),
+) where
     C: IntoLinSrgba<ColorScalar> + Clone,
 {
     let mut prev_k = 0.;
     let mut prev = (0., 0.);
     let mut has_prev: bool = false;
     for i in -500..500 {
-        let k = i as f32 / 10.;
+        let k = i as f32 / magnification.0;
         let x = i as f32;
         let v = fun(k);
-        let v = (v.0 / 10., v.1 / 10.);
+        let v = (v.0 * magnification.1, v.1 * magnification.1);
 
         if has_prev {
             draw.line()
@@ -54,11 +103,13 @@ fn view<R: rand::RngCore>(app: &App, model: &Model<R>, frame: Frame) {
         &draw,
         |k| model.e0.ellipse.outer_tangents_fun(&model.e1.ellipse, k),
         [RED, LIGHTPINK],
+        model.plot_magnification,
     );
     draw_plot(
         &draw,
         |k| model.e0.ellipse.tangent_k_alg(&model.e1.ellipse, k),
         [BLUE, LIGHTBLUE],
+        model.plot_magnification,
     );
 
     draw.line()

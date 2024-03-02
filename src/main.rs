@@ -123,6 +123,8 @@ struct Model<R: rand::RngCore> {
     egui: Egui,
     image: DynamicImage,
     windows: Windows,
+    plot_magnification: (f32, f32),
+    plot_magnification_change_axis_y: bool,
 }
 
 fn main() {
@@ -200,6 +202,8 @@ fn model(app: &App) -> Model<impl rand::RngCore> {
             main_window: main_window_id,
             plot_window: plot_window_id,
         },
+        plot_magnification: (1., 1.),
+        plot_magnification_change_axis_y: false,
     }
 }
 
