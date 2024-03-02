@@ -1,6 +1,6 @@
 use std::mem::Discriminant;
 
-use nannou::prelude::Pow;
+use nannou::{color::float::Float, prelude::Pow};
 
 use crate::line::Line;
 
@@ -141,11 +141,22 @@ impl Ellipse {
 
         let eq = |left: f32, right: f32| (left - right).abs();
 
-        let f_0 = ((a_0 * r_0).pow(2.) + (q_0 * i_0).pow(2.)).sqrt();
-        let g_0 = 2. * i_0 * r_0 * (a_0 - q_0) * (a_0 + q_0);
-        let h_0 = (a_0 * i_0).pow(2.) + (q_0 * r_0).pow(2.);
 
-        let discriminant_0 = (k * f_0).pow(2.) + k * g_0 + h_0;
+        let ppp
+        = (a_0.pow(2.) * r_0 * i_0).pow(2.)
+        + (a_0 * r_0.pow(2.) * q_0).pow(2.)
+        + (q_0 * i_0.pow(2.) * a_0).pow(2.)
+        + (q_0.pow(2.) * i_0 * r_0).pow(2.);
+
+
+        let aaa = (i_0 * r_0).pow(2.) * (a_0 - q_0).pow(2.) * (a_0 + q_0).pow(2.)
+
+
+        let f_0 = ((a_0 * r_0).pow(2.) + (q_0 * i_0).pow(2.)).sqrt();
+        let h_0 = ((a_0 * i_0).pow(2.) + (q_0 * r_0).pow(2.)).sqrt();
+        let g_0 = aaa.sqrt() / ppp.sqrt();
+
+        let discriminant_0 = (k * f_0).pow(2.) + 2. * f_0 * k * h_0 * g_0 + h_0.pow(2.);
 
         //let discriminant_0
         //    = (a_0 * (r_0 * k + i_0)).pow(2.)
