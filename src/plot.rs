@@ -67,7 +67,7 @@ fn draw_plot<C>(
     fun: impl Fn(f32) -> (f32, f32),
     colors: [C; 2],
     magnification: (f32, f32),
-    current_k: f32
+    current_k: f32,
 ) where
     C: IntoLinSrgba<ColorScalar> + Clone,
 {
@@ -109,7 +109,6 @@ fn draw_plot<C>(
         .x(current_x)
         .y(current_y.1)
         .color(colors[1].clone());
-
 }
 
 fn view<R: rand::RngCore>(app: &App, model: &Model<R>, frame: Frame) {
@@ -124,14 +123,14 @@ fn view<R: rand::RngCore>(app: &App, model: &Model<R>, frame: Frame) {
         |k| model.e0.ellipse.outer_tangents_fun(&model.e1.ellipse, k),
         [RED, LIGHTPINK],
         model.plot_magnification,
-        k
+        k,
     );
     draw_plot(
         &draw,
         |k| model.e0.ellipse.tangent_k_alg(&model.e1.ellipse, k),
         [BLUE, LIGHTBLUE],
         model.plot_magnification,
-        k
+        k,
     );
 
     draw.line()

@@ -142,14 +142,13 @@ impl Ellipse {
         (lhs - rhs, lhs + rhs)
     }
 
-    pub(crate) fn common_tangents(&self, rhs: &Ellipse) -> (Line, Line) {
+    pub(crate) fn common_tangents(&self, rhs: &Ellipse) -> Vec<Line> {
         let x_0 = self.x;
         let y_0 = self.y;
         let a_0 = self.a;
         let b_0 = self.b;
         let r_0 = self.r;
         let i_0 = self.i;
-        let q_0 = b_0 / (r_0.pow(2.) + i_0.pow(2.));
 
         let x_1 = rhs.x;
         let y_1 = rhs.y;
@@ -157,24 +156,63 @@ impl Ellipse {
         let b_1 = rhs.b;
         let r_1 = rhs.r;
         let i_1 = rhs.i;
+
+        let q_0 = b_0 / (r_0.pow(2.) + i_0.pow(2.));
         let q_1 = b_1 / (r_1.pow(2.) + i_1.pow(2.));
 
-        let mut k: f32 = 0.;
+        let f_0 = (a_0 * r_0).pow(2.) + (q_0 * i_0).pow(2.);
+        let g_0 = 2. * i_0 * r_0 * (a_0.pow(2.) - q_0.pow(2.));
+        let h_0 = (a_0 * i_0).pow(2.) + (q_0 * r_0).pow(2.);
 
-        let mut prev_err: (f32, f32) = (0., 0.);
-        loop {
-            let discriminant_0 = (a_0 * (r_0 * k + i_0)).pow(2.) + (q_0 * (i_0 * k - r_0)).pow(2.);
-            let discriminant_1 = (a_1 * (r_1 * k + i_1)).pow(2.) + (q_1 * (i_1 * k - r_1)).pow(2.);
+        let f_1 = (a_1 * r_1).pow(2.) + (q_1 * i_1).pow(2.);
+        let g_1 = 2. * i_1 * r_1 * (a_1.pow(2.) - q_1.pow(2.));
+        let h_1 = (a_1 * i_1).pow(2.) + (q_1 * r_1).pow(2.);
 
-            let lhs = k * (x_1 - x_0) + y_0 - y_1;
-            let rhs = discriminant_1.sqrt() - discriminant_0.sqrt();
+        let j = f_1 + f_0 - (x_0 - x_1).pow(2.);
+        let w = g_1 + g_0 - 2. * (x_0 - x_1) * (y_1 - y_0);
+        let l = h_1 + h_0 - (y_1 - y_0).pow(2.);
 
-            let err: (f32, f32) = (lhs - rhs, lhs + rhs);
+        let o = j.pow(2.) - 4. * f_1 * f_0;
+        let p = 2. * j * w - 4. * f_1 * g_0 - 4. * f_0 * g_1;
+        let v = 2. * j * l + w.pow(2.) - 4. * f_1 * h_0 - 4. * g_1 * g_0 - 4. * h_1 * f_0;
+        let u = 2. * w * l - 4. * g_1 * h_0 - 4. * h_1 * g_0;
+        let m = l.pow(2.) - 4. * h_1 * h_0;
 
-            prev_err = err
+        fn pp<'a, const N: usize>(
+            e: &'a Ellipse,
+            j: f32,
+            w: f32,
+            l: f32,
+            roots: [f32; N],
+        ) -> impl Iterator<Item = Line> + 'a {
+            println!("roots: {:?}", roots);
+            roots
+                .into_iter()
+                .filter(move |k: &f32| k.pow(2.) * j + k * w + l >= 0.)
+                .map(|k| Line {
+                    k,
+                    d: e.tangent_d(k).1,
+                })
         }
 
-        (Line { k: 0., d: 0. }, Line { k: 0., d: 0. })
+        match roots::find_roots_quartic(o, p, v, u, m) {
+            roots::Roots::No(roots) => pp(self, j, w, l, roots).collect(),
+            roots::Roots::One(roots) => pp(self, j, w, l, roots).collect(),
+            roots::Roots::Two(roots) => pp(self, j, w, l, roots).collect(),
+            roots::Roots::Three(roots) => pp(self, j, w, l, roots).collect(),
+            roots::Roots::Four(roots) => pp(self, j, w, l, roots).collect(),
+        }
+
+        // let eq1 = if  {
+
+        //     let final_val = k.pow(4.) * o + k.pow(3.) * p + k.pow(2.) * v + k * u + m;
+
+        //     eq(final_val, 0.)
+        // } else {
+        //     f32::MAX
+        // };
+
+        //(eq0 / 100., eq1 / 20000000.)
     }
 
     pub(crate) fn tangent_k_alg(&self, rhs: &Ellipse, k: f32) -> (f32, f32) {
@@ -198,7 +236,7 @@ impl Ellipse {
         let eq = |left: f32, right: f32| (left - right).abs();
 
         let f_0 = (a_0 * r_0).pow(2.) + (q_0 * i_0).pow(2.);
-        let g_0 = 2. * i_0 * r_0 * (a_0 - q_0) * (a_0 + q_0);
+        let g_0 = 2. * i_0 * r_0 * (a_0.pow(2.) - q_0.pow(2.));
         let h_0 = (a_0 * i_0).pow(2.) + (q_0 * r_0).pow(2.);
 
         let discriminant_0 = k.pow(2.) * f_0 + k * g_0 + h_0;
@@ -212,9 +250,9 @@ impl Ellipse {
         // (a^2 + b^2 + c^2 + d^2 - z^2)^2 = (a^2 + b^2)(c^2 + d^2)
         //
 
-        let f_1 = a_1.pow(2.) * r_1.pow(2.) + q_1.pow(2.) * i_1.pow(2.);
+        let f_1 = (a_1 * r_1).pow(2.) + (q_1 * i_1).pow(2.);
         let g_1 = 2. * i_1 * r_1 * (a_1.pow(2.) - q_1.pow(2.));
-        let h_1 = a_1.pow(2.) * i_1.pow(2.) + q_1.pow(2.) * r_1.pow(2.);
+        let h_1 = (a_1 * i_1).pow(2.) + (q_1 * r_1).pow(2.);
 
         let discriminant_1 = k.pow(2.) * f_1 + k * g_1 + h_1;
 
@@ -222,63 +260,8 @@ impl Ellipse {
         //    = (a_1 * (r_1 * k + i_1)).pow(2.)
         //    + (q_1 * (i_1 * k - r_1)).pow(2.);
 
-        // a^2 + b^2 / c^2
-        // ((ac)^2 + b^2) / c^2
-
-        let d_d = 4. * (k * x_1 - y_1).pow(2.)
-            - 4. * (k.pow(2.) * x_1.pow(2.) - 2. * k * x_1 * y_1
-                + y_1.pow(2.)
-                + (a_1.pow(2.) * (-k.pow(2.) * r_1.pow(2.) - 2. * i_1 * k * r_1 - i_1.pow(2.))
-                    + b_1.pow(2.) * (-i_1.pow(2.) * k.pow(2.) + 2. * i_1 * k * r_1 - r_1.pow(2.)))
-                    / (r_1.pow(4.) + 2. * i_1.pow(2.) * r_1.pow(2.) + i_1.pow(4.)))
-            - 4. * (k * x_0 - y_0).pow(2.)
-            + 4. * (k.pow(2.) * x_0.pow(2.) - 2. * k * x_0 * y_0
-                + y_0.pow(2.)
-                + (a_0.pow(2.) * (-k.pow(2.) * r_0.pow(2.) - 2. * i_0 * k * r_0 - i_0.pow(2.))
-                    + b_0.pow(2.) * (-i_0.pow(2.) * k.pow(2.) + 2. * i_0 * k * r_0 - r_0.pow(2.)))
-                    / (r_0.pow(4.) + 2. * i_0.pow(2.) * r_0.pow(2.) + i_0.pow(4.)));
-
-        //c = a.sqrt() - b.sqrt();
-        //c^2 = a + b - 2 * a.sqrt() * b.sqrt()
-        //c^2 - a - b = - 2 * a.sqrt() * b.sqrt()
-        //a + b - c^2 = 2 * a.sqrt() * b.sqrt()
-        //(a + b)^2 - 2(a + b)c^2 + c^4 = 4ab
-        //a^2 + b^2 + 2ab - 2ac^2 - 2bc^2 + c^4 = 4ab
-        //a^2 + b^2 - 2ab - 2ac^2 - 2bc^2 + c^4 = 0
-
-        //a = 1
-        //b = 0
-
         let rhs =
             (k.pow(2.) * f_1 + k * g_1 + h_1).sqrt() - (k.pow(2.) * f_0 + k * g_0 + h_0).sqrt();
-
-        let try_0 = (k.pow(2.) * f_1 + k * g_1 + h_1).pow(2.)
-            + (k.pow(2.) * f_0 + k * g_0 + h_0).pow(2.)
-            - 2. * (k.pow(2.) * f_1 + k * g_1 + h_1) * (k.pow(2.) * f_0 + k * g_0 + h_0)
-            - 2. * (k.pow(2.) * f_1 + k * g_1 + h_1) * (k * (x_1 - x_0) + y_0 - y_1).pow(2.)
-            - 2. * (k.pow(2.) * f_0 + k * g_0 + h_0) * (k * (x_1 - x_0) + y_0 - y_1).pow(2.)
-            + (k * (x_1 - x_0) + y_0 - y_1).pow(4.);
-
-        let try_1 = (k.pow(2.) * f_1 + k * g_1 + h_1).pow(2.)
-            + (k.pow(2.) * f_0 + k * g_0 + h_0).pow(2.)
-            - 2. * (k.pow(2.) * f_1 + k * g_1 + h_1) * (k.pow(2.) * f_0 + k * g_0 + h_0)
-            - 2. * (k.pow(2.) * f_1 + k * g_1 + h_1) * (k * (x_0 - x_1) + y_1 - y_0).pow(2.)
-            - 2. * (k.pow(2.) * f_0 + k * g_0 + h_0) * (k * (x_0 - x_1) + y_1 - y_0).pow(2.)
-            + (k * (x_0 - x_1) + y_1 - y_0).pow(4.);
-
-        // let try_0 = ((a_1 * (r_1 * k + i_1)).pow(2.) + (q_1 * (i_1 * k - r_1)).pow(2.)).pow(2.)
-        //     + ((a_0 * (r_0 * k + i_0)).pow(2.) + (q_0 * (i_0 * k - r_0)).pow(2.)).pow(2.)
-        //     - 2. * ((a_1 * (r_1 * k + i_1)).pow(2.) + (q_1 * (i_1 * k - r_1)).pow(2.)) * ((a_0 * (r_0 * k + i_0)).pow(2.) + (q_0 * (i_0 * k - r_0)).pow(2.))
-        //     - 2. * ((a_1 * (r_1 * k + i_1)).pow(2.) + (q_1 * (i_1 * k - r_1)).pow(2.)) * (k * (x_1 - x_0) + y_0 - y_1).pow(2.)
-        //     - 2. * ((a_0 * (r_0 * k + i_0)).pow(2.) + (q_0 * (i_0 * k - r_0)).pow(2.)) * (k * (x_1 - x_0) + y_0 - y_1).pow(2.)
-        //     + (k * (x_1 - x_0) + y_0 - y_1).pow(4.);
-
-        // let try_1 = ((a_1 * (r_1 * k + i_1)).pow(2.) + (q_1 * (i_1 * k - r_1)).pow(2.)).pow(2.)
-        //     + ((a_0 * (r_0 * k + i_0)).pow(2.) + (q_0 * (i_0 * k - r_0)).pow(2.)).pow(2.)
-        //     - 2. * ((a_1 * (r_1 * k + i_1)).pow(2.) + (q_1 * (i_1 * k - r_1)).pow(2.)) * ((a_0 * (r_0 * k + i_0)).pow(2.) + (q_0 * (i_0 * k - r_0)).pow(2.))
-        //     - 2. * ((a_1 * (r_1 * k + i_1)).pow(2.) + (q_1 * (i_1 * k - r_1)).pow(2.)) * (k * (x_0 - x_1) + y_1 - y_0).pow(2.)
-        //     - 2. * ((a_0 * (r_0 * k + i_0)).pow(2.) + (q_0 * (i_0 * k - r_0)).pow(2.)) * (k * (x_0 - x_1) + y_1 - y_0).pow(2.)
-        //     + (k * (x_0 - x_1) + y_1 - y_0).pow(4.);
 
         let discriminant_0 = (a_0 * (r_0 * k + i_0)).pow(2.) + (q_0 * (i_0 * k - r_0)).pow(2.);
         let discriminant_1 = (a_1 * (r_1 * k + i_1)).pow(2.) + (q_1 * (i_1 * k - r_1)).pow(2.);
@@ -296,41 +279,26 @@ impl Ellipse {
                 .pow(2.),
         );
 
-        (k * (x_0 - x_1) + y_1 - y_0).pow(2.);
-        k.pow(2.) * (x_0 - x_1).pow(2.) + 2. * k * (x_0 - x_1) * (y_1 - y_0) + (y_1 - y_0).pow(2.);
+        let f_0 = (a_0 * r_0).pow(2.) + (q_0 * i_0).pow(2.);
+        let g_0 = 2. * i_0 * r_0 * (a_0.pow(2.) - q_0.pow(2.));
+        let h_0 = (a_0 * i_0).pow(2.) + (q_0 * r_0).pow(2.);
+
+        let f_1 = (a_1 * r_1).pow(2.) + (q_1 * i_1).pow(2.);
+        let g_1 = 2. * i_1 * r_1 * (a_1.pow(2.) - q_1.pow(2.));
+        let h_1 = (a_1 * i_1).pow(2.) + (q_1 * r_1).pow(2.);
 
         let j = f_1 + f_0 - (x_0 - x_1).pow(2.);
         let w = g_1 + g_0 - 2. * (x_0 - x_1) * (y_1 - y_0);
         let l = h_1 + h_0 - (y_1 - y_0).pow(2.);
 
-        (k.pow(2.) * j + k * w + l).pow(2.);
-        k.pow(4.) * j.pow(2.) + 2. * k.pow(2.) * j * (k * w + l) + (k * w + l).pow(2.);
-
-        (k.pow(2.) * f_1 + k * g_1 + h_1) * (k.pow(2.) * f_0 + k * g_0 + h_0);
-
-        //= k.pow(2.) * f_1 * k.pow(2.) * f_0
-        //+ k.pow(2.) * f_1 * k * g_0
-        //+ k.pow(2.) * f_1 * h_0
-        //+ k * g_1 * k.pow(2.) * f_0
-        //+ k * g_1 * k * g_0
-        //+ k * g_1 * h_0
-        //+ h_1 * k.pow(2.) * f_0
-        //+ h_1 * k * g_0
-        //+ h_1 * h_0
-
-        let eq1 = if (k.pow(2.) * j + k * w + l) >= 0. {
+        let eq1 = if k.pow(2.) * j + k * w + l >= 0. {
             let o = j.pow(2.) - 4. * f_1 * f_0;
             let p = 2. * j * w - 4. * f_1 * g_0 - 4. * f_0 * g_1;
             let v = 2. * j * l + w.pow(2.) - 4. * f_1 * h_0 - 4. * g_1 * g_0 - 4. * h_1 * f_0;
             let u = 2. * w * l - 4. * g_1 * h_0 - 4. * h_1 * g_0;
             let m = l.pow(2.) - 4. * h_1 * h_0;
 
-            let final_val
-            = k.pow(4.) * o
-            + k.pow(3.) * p
-            + k.pow(2.) * v
-            + k * u
-            + m;
+            let final_val = k.pow(4.) * o + k.pow(3.) * p + k.pow(2.) * v + k * u + m;
 
             eq(final_val, 0.)
         } else {

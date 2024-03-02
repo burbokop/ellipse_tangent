@@ -329,6 +329,10 @@ fn draw_line_by_kd(draw: &Draw, k: f32, d: f32) -> Drawing<primitive::Line> {
     draw.line().points(pt2(x0, y0), pt2(x1, y1))
 }
 
+fn draw_line(draw: &Draw, line: Line) -> Drawing<primitive::Line> {
+    draw_line_by_kd(draw, line.k, line.d)
+}
+
 fn raw_window_event<R: rand::RngCore>(
     app: &App,
     model: &mut Model<R>,
@@ -359,13 +363,6 @@ fn raw_window_event<R: rand::RngCore>(
                     model.e1.update(model.cursor_pos);
                 }
             }
-            nannou::winit::event::WindowEvent::CursorLeft { device_id } => {}
-            nannou::winit::event::WindowEvent::MouseWheel {
-                device_id,
-                delta,
-                phase,
-                modifiers,
-            } => todo!(),
             nannou::winit::event::WindowEvent::MouseInput {
                 device_id,
                 state,
@@ -486,6 +483,14 @@ fn view<R: rand::RngCore>(app: &App, model: &Model<R>, frame: Frame) {
         .x(model.cursor_pos.x)
         .y(model.cursor_pos.y)
         .color(BLACK);
+
+    let commont_tangents = model.e0.ellipse.common_tangents(&model.e1.ellipse);
+
+    for t in commont_tangents {
+        draw_line(&draw, t)
+            .stroke_weight(2.)
+            .color(VIOLET);
+    }
 
     draw.to_frame(app, &frame).unwrap();
     model.egui.draw_to_frame(&frame).unwrap();
