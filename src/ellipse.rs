@@ -251,12 +251,40 @@ impl Ellipse {
 
         let rhs =
             (k.pow(2.) * f_1 + k * g_1 + h_1).sqrt() - (k.pow(2.) * f_0 + k * g_0 + h_0).sqrt();
-        let rhs_ = (k.pow(2.) * f_1 + k * g_1 + h_1).pow(2.)
+
+        let try_0
+            = (k.pow(2.) * f_1 + k * g_1 + h_1).pow(2.)
             + (k.pow(2.) * f_0 + k * g_0 + h_0).pow(2.)
             - 2. * (k.pow(2.) * f_1 + k * g_1 + h_1) * (k.pow(2.) * f_0 + k * g_0 + h_0)
             - 2. * (k.pow(2.) * f_1 + k * g_1 + h_1) * (k * (x_1 - x_0) + y_0 - y_1).pow(2.)
             - 2. * (k.pow(2.) * f_0 + k * g_0 + h_0) * (k * (x_1 - x_0) + y_0 - y_1).pow(2.)
             + (k * (x_1 - x_0) + y_0 - y_1).pow(4.);
+
+        let try_1
+            = (k.pow(2.) * f_1 + k * g_1 + h_1).pow(2.)
+            + (k.pow(2.) * f_0 + k * g_0 + h_0).pow(2.)
+            - 2. * (k.pow(2.) * f_1 + k * g_1 + h_1) * (k.pow(2.) * f_0 + k * g_0 + h_0)
+            - 2. * (k.pow(2.) * f_1 + k * g_1 + h_1) * (k * (x_0 - x_1) + y_1 - y_0).pow(2.)
+            - 2. * (k.pow(2.) * f_0 + k * g_0 + h_0) * (k * (x_0 - x_1) + y_1 - y_0).pow(2.)
+            + (k * (x_0 - x_1) + y_1 - y_0).pow(4.);
+
+        // let try_0 = ((a_1 * (r_1 * k + i_1)).pow(2.) + (q_1 * (i_1 * k - r_1)).pow(2.)).pow(2.)
+        //     + ((a_0 * (r_0 * k + i_0)).pow(2.) + (q_0 * (i_0 * k - r_0)).pow(2.)).pow(2.)
+        //     - 2. * ((a_1 * (r_1 * k + i_1)).pow(2.) + (q_1 * (i_1 * k - r_1)).pow(2.)) * ((a_0 * (r_0 * k + i_0)).pow(2.) + (q_0 * (i_0 * k - r_0)).pow(2.))
+        //     - 2. * ((a_1 * (r_1 * k + i_1)).pow(2.) + (q_1 * (i_1 * k - r_1)).pow(2.)) * (k * (x_1 - x_0) + y_0 - y_1).pow(2.)
+        //     - 2. * ((a_0 * (r_0 * k + i_0)).pow(2.) + (q_0 * (i_0 * k - r_0)).pow(2.)) * (k * (x_1 - x_0) + y_0 - y_1).pow(2.)
+        //     + (k * (x_1 - x_0) + y_0 - y_1).pow(4.);
+
+        // let try_1 = ((a_1 * (r_1 * k + i_1)).pow(2.) + (q_1 * (i_1 * k - r_1)).pow(2.)).pow(2.)
+        //     + ((a_0 * (r_0 * k + i_0)).pow(2.) + (q_0 * (i_0 * k - r_0)).pow(2.)).pow(2.)
+        //     - 2. * ((a_1 * (r_1 * k + i_1)).pow(2.) + (q_1 * (i_1 * k - r_1)).pow(2.)) * ((a_0 * (r_0 * k + i_0)).pow(2.) + (q_0 * (i_0 * k - r_0)).pow(2.))
+        //     - 2. * ((a_1 * (r_1 * k + i_1)).pow(2.) + (q_1 * (i_1 * k - r_1)).pow(2.)) * (k * (x_0 - x_1) + y_1 - y_0).pow(2.)
+        //     - 2. * ((a_0 * (r_0 * k + i_0)).pow(2.) + (q_0 * (i_0 * k - r_0)).pow(2.)) * (k * (x_0 - x_1) + y_1 - y_0).pow(2.)
+        //     + (k * (x_0 - x_1) + y_1 - y_0).pow(4.);
+
+
+        let discriminant_0 = (a_0 * (r_0 * k + i_0)).pow(2.) + (q_0 * (i_0 * k - r_0)).pow(2.);
+        let discriminant_1 = (a_1 * (r_1 * k + i_1)).pow(2.) + (q_1 * (i_1 * k - r_1)).pow(2.);
 
         //= a.pow(2.)
         //+ b.pow(2.)
@@ -265,14 +293,21 @@ impl Ellipse {
         //- 2. * b * c.pow(2.)
         //+ c.pow(4.)
 
-        // let eq0 = eq(
-        //     rhs_,
-        //     0.,
-        // );
+        let eq0 = eq((k * (x_1 - x_0) + y_0 - y_1).pow(2.), ((k.pow(2.) * f_1 + k * g_1 + h_1).sqrt() - (k.pow(2.) * f_0 + k * g_0 + h_0).sqrt()).pow(2.));
 
-        let eq0 = eq(k * (x_1 - x_0) + y_0 - y_1, rhs);
 
-        let eq1 = eq(k * (x_1 - x_0) + y_0 - y_1, -rhs);
+        let eq1 = if ((k.pow(2.) * f_1 + k * g_1 + h_1) + (k.pow(2.) * f_0 + k * g_0 + h_0) - (k * (x_0 - x_1) + y_1 - y_0).pow(2.)) >= 0. {
+            eq(
+                ((k.pow(2.) * f_1 + k * g_1 + h_1) + (k.pow(2.) * f_0 + k * g_0 + h_0) - (k * (x_0 - x_1) + y_1 - y_0).pow(2.)).pow(2.),
+                4. * (k.pow(2.) * f_1 + k * g_1 + h_1) * (k.pow(2.) * f_0 + k * g_0 + h_0)
+            )
+        } else {
+            f32::MAX
+        };
+
+        // let eq0 = eq(k * (x_1 - x_0) + y_0 - y_1, rhs);
+
+        // let eq1 = eq(k * (x_1 - x_0) + y_0 - y_1, -rhs);
 
         // let eq0 = eq(
         //     k * (x_1 - x_0) + y_0 - y_1,
@@ -284,7 +319,7 @@ impl Ellipse {
         //     discriminant_1.sqrt() - discriminant_0.sqrt(),
         // );
 
-        (eq0 * 2., eq1 * 2.)
+        (eq0 / 100., eq1 / 20000000.)
     }
 }
 
@@ -438,5 +473,6 @@ mod tests {
         do_assert(fun0);
         do_assert(fun1);
         do_assert(fun2);
+        //do_assert(fun3);
     }
 }
