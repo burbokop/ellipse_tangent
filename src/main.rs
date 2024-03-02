@@ -15,6 +15,7 @@ use nannou::{
     prelude::*,
 };
 use nannou_egui::{self, egui, Egui};
+use utils::deg_to_rot;
 
 use crate::md_array::MdArray;
 
@@ -79,9 +80,40 @@ struct Settings {
     scale: f32,
 }
 
+struct EllipseState {
+    ellipse: Ellipse,
+    is_grabbed_to_move: bool,
+    is_grabbed_to_rotate: bool,
+    is_grabbed_to_scale: bool
+}
+
+impl EllipseState {
+    fn update(&mut self, cursor_pos: Point2) -> bool {
+        if self.is_grabbed_to_move {
+            self.ellipse.x = cursor_pos.x;
+            self.ellipse.y = cursor_pos.y;
+            true
+        } else if self.is_grabbed_to_rotate {
+            let rt = deg_to_rot(cursor_pos.x);
+            self.ellipse.r = rt.0;
+            self.ellipse.i = rt.1;
+            true
+        } else if self.is_grabbed_to_scale {
+            self.ellipse.a = cursor_pos.x / 10.;
+            self.ellipse.b = cursor_pos.y / 10.;
+            true
+        } else {
+            false
+        }
+    }
+}
+
 struct Model<R: rand::RngCore> {
-    e0: Ellipse,
-    e1: Ellipse,
+    e0: EllipseState,
+    e1: EllipseState,
+    window_scale_factor: f32,
+    window_rect: geom::Rect,
+    cursor_pos: Point2,
     sim: SimulationIter<f32, Range<f32>, FitnessSelector<TangentFitness>, R>,
     population: Vec<Chromosome<f32>>,
     settings: Settings,
@@ -134,8 +166,11 @@ fn model(app: &App) -> Model<impl rand::RngCore> {
     //println!("window.rect(): {:?}", window.rect());
 
     Model {
-        e0: ellipse0,
-        e1: ellipse1,
+        e0: EllipseState { ellipse: ellipse0, is_grabbed_to_move: false, is_grabbed_to_rotate: false, is_grabbed_to_scale: false },
+        e1: EllipseState { ellipse: ellipse1, is_grabbed_to_move: false, is_grabbed_to_rotate: false, is_grabbed_to_scale: false },
+        window_scale_factor: window.scale_factor(),
+        window_rect: window.rect(),
+        cursor_pos: pt2(0., 0.),
         sim,
         population: vec![],
         settings: Settings { theta: 0., scale: 1. },
@@ -151,7 +186,7 @@ fn fill_image<R: rand::RngCore>(app: &App, model: &mut Model<R>) {
     let window_rect = app.window_rect();
     //println!("window_rect: {:?}, {}", window_rect, window_rect.x.start);
 
-    let pt_to_img = |pt: Point2| {
+    let _pt_to_img = |pt: Point2| {
         (
             (pt.x - window_rect.x.start) as usize,
             (pt.y - window_rect.y.start) as usize,
@@ -180,10 +215,10 @@ fn fill_image<R: rand::RngCore>(app: &App, model: &mut Model<R>) {
 
 
             *array.at_mut(x, y) = model
-                    .e0
+                    .e0.ellipse
                     .intersection_discriminant(Line { k, d: pt.y - k * pt.x })
                 * model
-                    .e1
+                    .e1.ellipse
                     .intersection_discriminant(Line { k, d: pt.y - k * pt.x })
         }
     }
@@ -236,17 +271,17 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
 
         egui::Window::new("Settings").show(&ctx, |ui| {
             // Scale slider
-            ui.label(format!("E0: {:?}", &model.e0));
-            ui.label(format!("E1: {:?}", &model.e1));
+            ui.label(format!("E0: {:?}", &model.e0.ellipse));
+            ui.label(format!("E1: {:?}", &model.e1.ellipse));
 
             ui.label("Scale:");
-            ui.add(egui::Slider::new(&mut settings.scale, 0.1..=1000000.));
+            ui.add(egui::Slider::new(&mut settings.scale, 0.1..=100000.));
             ui.label("K:");
             ui.add(egui::Slider::new(theta, (0.)..=360.).step_by(1.));
 
 
             let k = deg_to_rad(*theta).tan();
-            let outer = model.e0.tangent_d_d(&model.e1, k);
+            let outer = model.e0.ellipse.outer_tangents_fun(&model.e1.ellipse, k);
             ui.label(format!("result: {:?}", outer));
         });
     }
@@ -272,6 +307,51 @@ fn raw_window_event<R: rand::RngCore>(
     model: &mut Model<R>,
     event: &nannou::winit::event::WindowEvent,
 ) {
+    match event {
+        nannou::winit::event::WindowEvent::CursorMoved { device_id, position, modifiers } => {
+            model.cursor_pos = pt2(
+                position.x as f32 / model.window_scale_factor as f32 + model.window_rect.x.start,
+                -position.y as f32 / model.window_scale_factor as f32 - model.window_rect.y.start);
+
+            if !model.e0.update(model.cursor_pos) {
+                model.e1.update(model.cursor_pos);
+            }
+        },
+        nannou::winit::event::WindowEvent::CursorLeft { device_id } => {},
+        nannou::winit::event::WindowEvent::MouseWheel { device_id, delta, phase, modifiers } => todo!(),
+        nannou::winit::event::WindowEvent::MouseInput { device_id, state, button, modifiers } => {
+            match state {
+                nannou::event::ElementState::Pressed => {
+                    if model.e0.ellipse.eq()(model.cursor_pos.x, model.cursor_pos.y) < 0. {
+                        match button {
+                            MouseButton::Left => model.e0.is_grabbed_to_move = true,
+                            MouseButton::Right => model.e0.is_grabbed_to_rotate = true,
+                            MouseButton::Middle => model.e0.is_grabbed_to_scale = true,
+                            _ => {},
+                        }
+                    }
+                    if model.e1.ellipse.eq()(model.cursor_pos.x, model.cursor_pos.y) < 0. {
+                        match button {
+                            MouseButton::Left => model.e1.is_grabbed_to_move = true,
+                            MouseButton::Right => model.e1.is_grabbed_to_rotate = true,
+                            MouseButton::Middle => model.e1.is_grabbed_to_scale = true,
+                            _ => {},
+                        }
+                    }
+                },
+                nannou::event::ElementState::Released => {
+                    model.e0.is_grabbed_to_move = false;
+                    model.e0.is_grabbed_to_rotate = false;
+                    model.e0.is_grabbed_to_scale = false;
+                    model.e1.is_grabbed_to_move = false;
+                    model.e1.is_grabbed_to_rotate = false;
+                    model.e1.is_grabbed_to_scale = false;
+                },
+            }
+        },
+        nannou::winit::event::WindowEvent::Touch(_) => todo!(),
+        _ => {}
+    }
     // Let egui handle things like keyboard and mouse input.
     model.egui.handle_raw_event(event);
 }
@@ -302,9 +382,11 @@ fn dd_plot<R: rand::RngCore>(draw: &Draw, model: &Model<R>) {
     let mut prev = (0.,0.);
     let mut has_prev: bool = false;
     for i in -500..500 {
-        let k = i as f32 / 100.;
+        let k = i as f32 / 10.;
         let x = i as f32;
-        let v = model.e0.tangent_d_d(&model.e1, k);
+        let v = model.e0.ellipse.outer_tangents_fun(&model.e1.ellipse, k);
+
+        let v = (v.0 / 10., v.1 / 10.);
 
         if has_prev {
             draw.line().points(pt2(prev_k, prev.0), pt2(x, v.0)).color(RED);
@@ -315,6 +397,7 @@ fn dd_plot<R: rand::RngCore>(draw: &Draw, model: &Model<R>) {
         prev = v;
         has_prev= true;
     }
+    draw.line().points(pt2(-500., 0.), pt2(500., 0.)).color(YELLOW);
 
 }
 
@@ -322,8 +405,8 @@ fn view<R: rand::RngCore>(app: &App, model: &Model<R>, frame: Frame) {
     let draw = app.draw();
     draw.background().color(BLACK);
 
-    draw_ellipse(&draw, &model.e0);
-    draw_ellipse(&draw, &model.e1);
+    draw_ellipse(&draw, &model.e0.ellipse);
+    draw_ellipse(&draw, &model.e1.ellipse);
 
     let start = pt2(-400., -400.);
     let end = pt2(400., 400.);
@@ -349,21 +432,23 @@ fn view<R: rand::RngCore>(app: &App, model: &Model<R>, frame: Frame) {
 
     let k = deg_to_rad(model.settings.theta).tan();
 
-    let e0d = model.e0.tangent_d(k);
-    let e1d = model.e1.tangent_d(k);
+    let e0d = model.e0.ellipse.tangent_d(k);
+    let e1d = model.e1.ellipse.tangent_d(k);
 
-    println!("e0: {:?}", &model.e0);
-    println!("e1: {:?}", &model.e1);
+    //println!("e0: {:?}", &model.e0.ellipse);
+    //println!("e1: {:?}", &model.e1.ellipse);
 
-    println!("e0d: {:?}", e0d);
-    println!("e1d: {:?}", e1d);
+    //println!("e0d: {:?}", e0d);
+    //println!("e1d: {:?}", e1d);
 
     draw_line_by_kd(&draw, k, e0d.0).stroke_weight(1.).color(GREEN);
     draw_line_by_kd(&draw, k, e0d.1).stroke_weight(1.).color(LIGHTGREEN);
     draw_line_by_kd(&draw, k, e1d.0).stroke_weight(1.).color(BLUE);
     draw_line_by_kd(&draw, k, e1d.1).stroke_weight(1.).color(LIGHTBLUE);
 
-    //dd_plot(&draw, &model);
+    draw.ellipse().stroke(VIOLET).stroke_weight(2.).radius(5.).x(model.cursor_pos.x).y(model.cursor_pos.y).color(BLACK);
+
+    dd_plot(&draw, &model);
 
     draw.to_frame(app, &frame).unwrap();
     model.egui.draw_to_frame(&frame).unwrap();

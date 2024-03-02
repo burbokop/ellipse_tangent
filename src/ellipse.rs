@@ -1,6 +1,6 @@
 use std::mem::Discriminant;
 
-use nannou::{color::float::Float, prelude::Pow};
+use nannou::prelude::Pow;
 
 use crate::line::Line;
 
@@ -107,21 +107,77 @@ impl Ellipse {
         let b = self.b;
         let r = self.r;
         let i = self.i;
+        let q = b / (r.pow(2.) + i.pow(2.));
 
-        let discriminant = 4. * (k * x_0 - y_0).pow(2.)
-            - 4. * (k.pow(2.) * x_0.pow(2.) - 2. * k * x_0 * y_0
-                + y_0.pow(2.)
-                + (a.pow(2.) * (-k.pow(2.) * r.pow(2.) - 2. * i * k * r - i.pow(2.))
-                    + b.pow(2.) * (-i.pow(2.) * k.pow(2.) + 2. * i * k * r - r.pow(2.)))
-                    / (r.pow(4.) + 2. * i.pow(2.) * r.pow(2.) + i.pow(4.)));
+        let discriminant = (a * (r * k + i)).pow(2.) + (q * (i * k - r)).pow(2.);
+        let base = -k * x_0 + y_0;
 
-        let d_0 = (-2. * (k * x_0 - y_0) + discriminant.sqrt()) / 2.;
-        let d_1 = (-2. * (k * x_0 - y_0) - discriminant.sqrt()) / 2.;
-
-        (d_0, d_1)
+        (base + discriminant.sqrt(), base - discriminant.sqrt())
     }
 
-    pub(crate) fn tangent_d_d(&self, rhs: &Ellipse, k: f32) -> (f32, f32) {
+    /// intersection of this function with y = 0 is where common outer tangents are
+    pub(crate) fn outer_tangents_fun(&self, rhs: &Ellipse, k: f32) -> (f32, f32) {
+        let x_0 = self.x;
+        let y_0 = self.y;
+        let a_0 = self.a;
+        let b_0 = self.b;
+        let r_0 = self.r;
+        let i_0 = self.i;
+        let q_0 = b_0 / (r_0.pow(2.) + i_0.pow(2.));
+
+        let x_1 = rhs.x;
+        let y_1 = rhs.y;
+        let a_1 = rhs.a;
+        let b_1 = rhs.b;
+        let r_1 = rhs.r;
+        let i_1 = rhs.i;
+        let q_1 = b_1 / (r_1.pow(2.) + i_1.pow(2.));
+
+        let discriminant_0 = (a_0 * (r_0 * k + i_0)).pow(2.) + (q_0 * (i_0 * k - r_0)).pow(2.);
+        let discriminant_1 = (a_1 * (r_1 * k + i_1)).pow(2.) + (q_1 * (i_1 * k - r_1)).pow(2.);
+
+        let lhs = k * (x_1 - x_0) + y_0 - y_1;
+        let rhs = discriminant_1.sqrt() - discriminant_0.sqrt();
+
+        (lhs - rhs, lhs + rhs)
+    }
+
+    pub(crate) fn common_tangents(&self, rhs: &Ellipse) -> (Line, Line) {
+        let x_0 = self.x;
+        let y_0 = self.y;
+        let a_0 = self.a;
+        let b_0 = self.b;
+        let r_0 = self.r;
+        let i_0 = self.i;
+        let q_0 = b_0 / (r_0.pow(2.) + i_0.pow(2.));
+
+        let x_1 = rhs.x;
+        let y_1 = rhs.y;
+        let a_1 = rhs.a;
+        let b_1 = rhs.b;
+        let r_1 = rhs.r;
+        let i_1 = rhs.i;
+        let q_1 = b_1 / (r_1.pow(2.) + i_1.pow(2.));
+
+        let mut k: f32 = 0.;
+
+        let mut prev_err: (f32, f32) = (0., 0.);
+        loop {
+            let discriminant_0 = (a_0 * (r_0 * k + i_0)).pow(2.) + (q_0 * (i_0 * k - r_0)).pow(2.);
+            let discriminant_1 = (a_1 * (r_1 * k + i_1)).pow(2.) + (q_1 * (i_1 * k - r_1)).pow(2.);
+
+            let lhs = k * (x_1 - x_0) + y_0 - y_1;
+            let rhs = discriminant_1.sqrt() - discriminant_0.sqrt();
+
+            let err: (f32, f32) = (lhs - rhs, lhs + rhs);
+
+            prev_err = err
+        }
+
+        (Line { k: 0., d: 0. }, Line { k: 0., d: 0. })
+    }
+
+    pub(crate) fn tangent_k_alg(&self, rhs: &Ellipse, k: f32) -> (f32, f32) {
         let x_0 = self.x;
         let y_0 = self.y;
         let a_0 = self.a;
@@ -141,22 +197,11 @@ impl Ellipse {
 
         let eq = |left: f32, right: f32| (left - right).abs();
 
+        let f_0 = (a_0 * r_0).pow(2.) + (q_0 * i_0).pow(2.);
+        let g_0 = 2. * i_0 * r_0 * (a_0 - q_0) * (a_0 + q_0);
+        let h_0 = (a_0 * i_0).pow(2.) + (q_0 * r_0).pow(2.);
 
-        let ppp
-        = (a_0.pow(2.) * r_0 * i_0).pow(2.)
-        + (a_0 * r_0.pow(2.) * q_0).pow(2.)
-        + (q_0 * i_0.pow(2.) * a_0).pow(2.)
-        + (q_0.pow(2.) * i_0 * r_0).pow(2.);
-
-
-        let aaa = (i_0 * r_0).pow(2.) * (a_0 - q_0).pow(2.) * (a_0 + q_0).pow(2.)
-
-
-        let f_0 = ((a_0 * r_0).pow(2.) + (q_0 * i_0).pow(2.)).sqrt();
-        let h_0 = ((a_0 * i_0).pow(2.) + (q_0 * r_0).pow(2.)).sqrt();
-        let g_0 = aaa.sqrt() / ppp.sqrt();
-
-        let discriminant_0 = (k * f_0).pow(2.) + 2. * f_0 * k * h_0 * g_0 + h_0.pow(2.);
+        let discriminant_0 = k.pow(2.) * f_0 + k * g_0 + h_0;
 
         //let discriminant_0
         //    = (a_0 * (r_0 * k + i_0)).pow(2.)
@@ -193,55 +238,60 @@ impl Ellipse {
                     + b_0.pow(2.) * (-i_0.pow(2.) * k.pow(2.) + 2. * i_0 * k * r_0 - r_0.pow(2.)))
                     / (r_0.pow(4.) + 2. * i_0.pow(2.) * r_0.pow(2.) + i_0.pow(4.)));
 
-        //c = a.sqrt() + b.sqrt();
-        //c.pow(2.) = a + 2 * a.sqrt() * b.sqrt() + b;
-        //c.pow(2.) - a - b = 2 * a.sqrt() * b.sqrt()
-        //(c.pow(2.) - a - b).pow(2.) = 4 * a * b
-        //c^4 - 2c^2(a - b) + (a - b)^2 = 4 * a * b
-        //c^4 - 2ac^2 - 2bc^2 + a^2 - 2ab + b^2 - 4ab = 0
-        //c^4 - 2ac^2 - 2bc^2 + a^2 + b^2 - 6ab = 0
-
         //c = a.sqrt() - b.sqrt();
         //c^2 = a + b - 2 * a.sqrt() * b.sqrt()
         //c^2 - a - b = - 2 * a.sqrt() * b.sqrt()
         //a + b - c^2 = 2 * a.sqrt() * b.sqrt()
-        //(a + b)^2 - (a + b)c^2 + c^4 = 4ab
-        //a^2 + b^2 + 2ab - ac^2 - bc^2 + c^4 = 4ab
-        //a^2 + b^2 - 2ab - ac^2 - bc^2 + c^4 = 0
+        //(a + b)^2 - 2(a + b)c^2 + c^4 = 4ab
+        //a^2 + b^2 + 2ab - 2ac^2 - 2bc^2 + c^4 = 4ab
+        //a^2 + b^2 - 2ab - 2ac^2 - 2bc^2 + c^4 = 0
 
-        let rhs = (k.pow(2.) * f_1 + k * g_1 + h_1).sqrt() - (k.pow(2.) * f_0 + k * g_0 + h_0).sqrt();
+        //a = 1
+        //b = 0
 
-        let eq0 = eq(
-            k * (x_1 - x_0) + y_0 - y_1,
-            rhs,
-        );
+        let rhs =
+            (k.pow(2.) * f_1 + k * g_1 + h_1).sqrt() - (k.pow(2.) * f_0 + k * g_0 + h_0).sqrt();
+        let rhs_ = (k.pow(2.) * f_1 + k * g_1 + h_1).pow(2.)
+            + (k.pow(2.) * f_0 + k * g_0 + h_0).pow(2.)
+            - 2. * (k.pow(2.) * f_1 + k * g_1 + h_1) * (k.pow(2.) * f_0 + k * g_0 + h_0)
+            - 2. * (k.pow(2.) * f_1 + k * g_1 + h_1) * (k * (x_1 - x_0) + y_0 - y_1).pow(2.)
+            - 2. * (k.pow(2.) * f_0 + k * g_0 + h_0) * (k * (x_1 - x_0) + y_0 - y_1).pow(2.)
+            + (k * (x_1 - x_0) + y_0 - y_1).pow(4.);
 
+        //= a.pow(2.)
+        //+ b.pow(2.)
+        //- 2. * a * b
+        //- 2. * a * c.pow(2.)
+        //- 2. * b * c.pow(2.)
+        //+ c.pow(4.)
 
-        let eq1 = eq(
-            k * (x_0 - x_1) + y_1 - y_0,
-            rhs,
-        );
+        // let eq0 = eq(
+        //     rhs_,
+        //     0.,
+        // );
 
-        let eq0 = eq(
-            k * (x_1 - x_0) + y_0 - y_1,
-            discriminant_1.sqrt() - discriminant_0.sqrt(),
-        );
+        let eq0 = eq(k * (x_1 - x_0) + y_0 - y_1, rhs);
 
+        let eq1 = eq(k * (x_1 - x_0) + y_0 - y_1, -rhs);
 
-        let eq1 = eq(
-            k * (x_0 - x_1) + y_1 - y_0,
-            discriminant_1.sqrt() - discriminant_0.sqrt(),
-        );
+        // let eq0 = eq(
+        //     k * (x_1 - x_0) + y_0 - y_1,
+        //     discriminant_1.sqrt() - discriminant_0.sqrt(),
+        // );
 
-        (
-            eq0 * 2.,
-            eq1 * 2.
-        )
+        // let eq1 = eq(
+        //     k * (x_0 - x_1) + y_1 - y_0,
+        //     discriminant_1.sqrt() - discriminant_0.sqrt(),
+        // );
+
+        (eq0 * 2., eq1 * 2.)
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use nannou::math::num_traits::Pow;
+
     use crate::utils::deg_to_rad;
 
     use super::Ellipse;
@@ -256,6 +306,22 @@ mod tests {
             if d > err {
                 panic!(
                     "{} and {} have difference equal {} which exceeds {}",
+                    x, y, d, err
+                );
+            }
+        };
+    }
+
+    macro_rules! assert_ne_err {
+        ($x: expr, $y: expr, $err: expr) => {
+            let x = $x;
+            let y = $y;
+            let err = $err;
+
+            let d = (x - y).abs();
+            if d < err {
+                panic!(
+                    "{} and {} have difference equal {} which less then {}",
                     x, y, d, err
                 );
             }
@@ -283,7 +349,7 @@ mod tests {
     #[test]
     fn tangent_d_d_0() {
         let k = deg_to_rad(66.).tan();
-        let r = E0.tangent_d_d(&E1, k);
+        let r = E0.tangent_k_alg(&E1, k);
         assert_eq_err!(r.0, 373., 2.);
         assert_eq_err!(r.1, 5., 2.);
     }
@@ -291,7 +357,7 @@ mod tests {
     #[test]
     fn tangent_d_d_1() {
         let k = deg_to_rad(50.).tan();
-        let r = E0.tangent_d_d(&E1, k);
+        let r = E0.tangent_k_alg(&E1, k);
         assert_eq_err!(r.0, 9., 2.);
         assert_eq_err!(r.1, 189., 2.);
     }
@@ -299,7 +365,7 @@ mod tests {
     #[test]
     fn tangent_d_d_2() {
         let k = deg_to_rad(85.).tan();
-        let r = E0.tangent_d_d(&E1, k);
+        let r = E0.tangent_k_alg(&E1, k);
         assert_eq_err!(r.0, 3300., 2.);
         assert_eq_err!(r.1, 1842., 2.);
     }
@@ -307,8 +373,70 @@ mod tests {
     #[test]
     fn tangent_d_d_3() {
         let k = deg_to_rad(25.).tan();
-        let r = E0.tangent_d_d(&E1, k);
+        let r = E0.tangent_k_alg(&E1, k);
         assert_eq_err!(r.0, 263., 2.);
         assert_eq_err!(r.1, 294., 2.);
+    }
+
+    fn eq(left: f32, right: f32) -> f32 {
+        (left - right).abs()
+    }
+
+    #[test]
+    fn xxx() {
+        let fun0 = |a: f32, b: f32, c: f32| eq(c, a.sqrt() - b.sqrt());
+
+        let fun1 = |a: f32, b: f32, c: f32| eq(a.sqrt() + b.sqrt(), (a - b) / c);
+
+        let fun2 = |a: f32, b: f32, c: f32| {
+            let q = (a - b) / c;
+            // a = 9
+            // b = 16
+            // c = 1
+            // q = -7
+
+            // 7^2 == 9 + 16 + 2*3*4
+
+            eq(q, a.sqrt() + b.sqrt())
+            //eq(q.pow(2.), a + 2. * a.sqrt() * b.sqrt() + b)
+
+            //eq(q.pow(4.) + 2. * a * q.pow(2.) - 2. * b * q.pow(2.) + a.pow(2.) + b.pow(2.) - 6. * a * b, 0.)
+        };
+
+        // q = (a - b) / c
+
+        // q = a.sqrt() + b.sqrt();
+        // q.pow(2.) = a + 2 * a.sqrt() * b.sqrt() + b;
+        // q.pow(2.) - a - b = 2 * a.sqrt() * b.sqrt()
+        // (q.pow(2.) + (a - b)).pow(2.) = 4 * a * b
+        // q.pow(4.) + 2 * c.pow(2.) * (a - b) + (a - b)^2 = 4 * a * b
+        // c.pow(4.) + 2 * a * c.pow(2.) - 2 * b * c.pow(2.) + a.pow(2.) - 2*a*b + b.pow(2.) - 4*a*b = 0
+        // c.pow(4.) + 2 * a * c.pow(2.) - 2 * b * c.pow(2.) + a.pow(2.) + b.pow(2.) - 6*a*b = 0
+
+        let fun3 = |a: f32, b: f32, c: f32| {
+            eq(
+                a.pow(2.) + b.pow(2.) - 2. * a * b - 2. * a * c.pow(2.) - 2. * b * c.pow(2.)
+                    + c.pow(4.),
+                0.,
+            )
+        };
+
+        //c = a.sqrt() - b.sqrt();
+        //c^2 = a + b - 2 * a.sqrt() * b.sqrt()
+        //c^2 - a - b = - 2 * a.sqrt() * b.sqrt()
+        //a + b - c^2 = 2 * a.sqrt() * b.sqrt()
+        //(a + b)^2 - 2(a + b)c^2 + c^4 = 4ab
+        //a^2 + b^2 + 2ab - 2ac^2 - 2bc^2 + c^4 = 4ab
+        //a^2 + b^2 - 2ab - 2ac^2 - 2bc^2 + c^4 = 0
+        let do_assert = |fun: fn(f32, f32, f32) -> f32| {
+            assert_eq_err!(fun(9., 4., 1.), 0., 0.001);
+            assert_eq_err!(fun(16., 4., 2.), 0., 0.001);
+            assert_eq_err!(fun(16., 9., 1.), 0., 0.001);
+            assert_eq_err!(fun(9., 16., -1.), 0., 0.001);
+            assert_ne_err!(fun(9., 16., 1.), 0., 0.001);
+        };
+        do_assert(fun0);
+        do_assert(fun1);
+        do_assert(fun2);
     }
 }
