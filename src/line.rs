@@ -1,9 +1,16 @@
 use std::f32::EPSILON;
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub(crate) struct Line {
     pub(crate) k: f32,
     pub(crate) d: f32,
+}
+
+enum Quadrant {
+    LeftTop,
+    RightTop,
+    RightBottom,
+    LeftBottom,
 }
 
 impl Line {
@@ -23,4 +30,20 @@ impl Line {
             None
         }
     }
+
+    // pub (crate) fn quadrant_of_k(k: f32) -> Quadrant {
+    //     if k >= 0 {
+    //         if k >= 1 {
+
+    //         } else {
+
+    //         }
+    //     } else {
+    //         if k < -1 {
+
+    //         } else {
+
+    //         }
+    //     }
+    // }
 }

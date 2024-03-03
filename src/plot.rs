@@ -1,5 +1,8 @@
 use nannou::{
-    color::{IntoLinSrgba, BLACK, BLUE, LIGHTBLUE, LIGHTPINK, RED, VIOLET, YELLOW},
+    color::{
+        IntoLinSrgba, Srgb, BLACK, BLUE, DARKSLATEGREY, LIGHTBLUE, LIGHTPINK, RED, VIOLET, WHITE,
+        YELLOW,
+    },
     draw::properties::ColorScalar,
     event::{ElementState, MouseButton},
     geom::pt2,
@@ -8,7 +11,12 @@ use nannou::{
     App, Draw, Frame,
 };
 
-use crate::{utils::deg_to_rad, Model};
+use crate::{
+    ellipse::D,
+    line::Line,
+    utils::{deg_to_rad, mul_tuple2},
+    Model,
+};
 
 pub fn new_plot_window(app: &App) -> Id {
     app.new_window()
@@ -68,6 +76,7 @@ fn draw_plot<C>(
     colors: [C; 2],
     magnification: (f32, f32),
     current_k: f32,
+    common_tangents: &[(Line, D)],
 ) where
     C: IntoLinSrgba<ColorScalar> + Clone,
 {
@@ -94,21 +103,49 @@ fn draw_plot<C>(
         has_prev = true;
     }
 
-    let current_v = fun(current_k);
-    let current_x = current_k * magnification.0;
-    let current_y = (current_v.0 * magnification.1, current_v.1 * magnification.1);
+    for t in common_tangents {
+        let v = fun(t.0.k);
+        let x = t.0.k * magnification.0;
+        let y = (v.0 * magnification.1, v.1 * magnification.1);
 
-    draw.ellipse()
-        .radius(3.)
-        .x(current_x)
-        .y(current_y.0)
-        .color(colors[0].clone());
+        let color = match t.1 {
+            D::Left => BLACK,
+            D::Right => WHITE,
+        };
 
-    draw.ellipse()
-        .radius(3.)
-        .x(current_x)
-        .y(current_y.1)
-        .color(colors[1].clone());
+        draw.ellipse()
+            .radius(3.)
+            .stroke(VIOLET)
+            .stroke_weight(1.)
+            .x(x)
+            .y(y.0)
+            .color(color);
+
+        draw.ellipse()
+            .radius(3.)
+            .stroke(VIOLET)
+            .stroke_weight(1.)
+            .x(x)
+            .y(y.1)
+            .color(color);
+    }
+
+    {
+        let current_v = fun(current_k);
+        let current_x = current_k * magnification.0;
+        let current_y = (current_v.0 * magnification.1, current_v.1 * magnification.1);
+        draw.ellipse()
+            .radius(3.)
+            .x(current_x)
+            .y(current_y.0)
+            .color(colors[0].clone());
+
+        draw.ellipse()
+            .radius(3.)
+            .x(current_x)
+            .y(current_y.1)
+            .color(colors[1].clone());
+    }
 }
 
 fn view<R: rand::RngCore>(app: &App, model: &Model<R>, frame: Frame) {
@@ -120,10 +157,16 @@ fn view<R: rand::RngCore>(app: &App, model: &Model<R>, frame: Frame) {
 
     draw_plot(
         &draw,
-        |k| model.e0.ellipse.outer_tangents_fun(&model.e1.ellipse, k),
+        |k| {
+            mul_tuple2(
+                model.e0.ellipse.outer_tangents_fun(&model.e1.ellipse, k),
+                (2., 2.),
+            )
+        },
         [RED, LIGHTPINK],
         model.plot_magnification,
         k,
+        &model.common_tangents,
     );
     draw_plot(
         &draw,
@@ -131,6 +174,7 @@ fn view<R: rand::RngCore>(app: &App, model: &Model<R>, frame: Frame) {
         [BLUE, LIGHTBLUE],
         model.plot_magnification,
         k,
+        &model.common_tangents,
     );
 
     draw.line()

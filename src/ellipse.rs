@@ -1,8 +1,9 @@
-use std::mem::Discriminant;
+use nannou::{
+    color::{Srgb, BLACK, WHITE},
+    prelude::Pow,
+};
 
-use nannou::prelude::Pow;
-
-use crate::line::Line;
+use crate::{line::Line, utils::notmalize_array};
 
 #[derive(Debug, Clone)]
 pub(crate) struct Ellipse {
@@ -24,6 +25,12 @@ pub(crate) struct Ellipse {
 // (r*x - i*y - x0)^2 / a^2 + (r*y + i*x - y0)^2 / b^2 = 1
 
 // (r*(x - x0) - i*(y - y0))^2 / a^2 + (r*(y - y0) + i*(x - x0))^2 / b^2 = 1
+
+#[derive(Debug, Clone)]
+pub enum D {
+    Left,
+    Right,
+}
 
 impl Ellipse {
     pub(crate) fn new(x: f32, y: f32, a: f32, b: f32, theta: f32) -> Self {
@@ -115,6 +122,8 @@ impl Ellipse {
         (base + discriminant.sqrt(), base - discriminant.sqrt())
     }
 
+    pub(crate) fn xxx() {}
+
     /// intersection of this function with y = 0 is where common outer tangents are
     pub(crate) fn outer_tangents_fun(&self, rhs: &Ellipse, k: f32) -> (f32, f32) {
         let x_0 = self.x;
@@ -142,7 +151,7 @@ impl Ellipse {
         (lhs - rhs, lhs + rhs)
     }
 
-    pub(crate) fn common_tangents(&self, rhs: &Ellipse) -> Vec<Line> {
+    pub(crate) fn common_tangents(&self, rhs: &Ellipse) -> Vec<(Line, D)> {
         let x_0 = self.x;
         let y_0 = self.y;
         let a_0 = self.a;
@@ -179,29 +188,53 @@ impl Ellipse {
         let m = l.pow(2.) - 4. * h_1 * h_0;
 
         fn pp<'a, const N: usize>(
-            e: &'a Ellipse,
+            e0: &'a Ellipse,
+            e1: &'a Ellipse,
             j: f32,
             w: f32,
             l: f32,
             roots: [f32; N],
-        ) -> impl Iterator<Item = Line> + 'a {
+        ) -> impl Iterator<Item = (Line, D)> + 'a {
             println!("roots: {:?}", roots);
             roots
                 .into_iter()
                 .filter(move |k: &f32| k.pow(2.) * j + k * w + l >= 0.)
-                .map(|k| Line {
-                    k,
-                    d: e.tangent_d(k).1,
+                .map(|k| {
+                    let d_0 = e0.tangent_d(k);
+                    let d_1 = e1.tangent_d(k);
+
+                    let err = 0.1;
+
+                    let mut vec = Vec::new();
+
+                    if (d_0.0 - d_1.0).abs() < err || (d_0.0 - d_1.1).abs() < err {
+                        vec.push((Line { k, d: d_0.0 }, D::Left))
+                    }
+                    if (d_0.1 - d_1.0).abs() < err || (d_0.1 - d_1.1).abs() < err {
+                        vec.push((Line { k, d: d_0.1 }, D::Right))
+                    }
+                    vec
                 })
+                .flatten()
         }
 
-        match roots::find_roots_quartic(o, p, v, u, m) {
-            roots::Roots::No(roots) => pp(self, j, w, l, roots).collect(),
-            roots::Roots::One(roots) => pp(self, j, w, l, roots).collect(),
-            roots::Roots::Two(roots) => pp(self, j, w, l, roots).collect(),
-            roots::Roots::Three(roots) => pp(self, j, w, l, roots).collect(),
-            roots::Roots::Four(roots) => pp(self, j, w, l, roots).collect(),
+        println!("pol: {}, {}, {}, {}, {}", o, p, v, u, m);
+        let norm = notmalize_array([o, p, v, u, m]);
+        println!("norm: {:?}", norm);
+
+        let res = match roots::find_roots_quartic(norm[0], norm[1], norm[2], norm[3], norm[4]) {
+            roots::Roots::No(roots) => pp(self, rhs, j, w, l, roots).collect(),
+            roots::Roots::One(roots) => pp(self, rhs, j, w, l, roots).collect(),
+            roots::Roots::Two(roots) => pp(self, rhs, j, w, l, roots).collect(),
+            roots::Roots::Three(roots) => pp(self, rhs, j, w, l, roots).collect(),
+            roots::Roots::Four(roots) => pp(self, rhs, j, w, l, roots).collect(),
+        };
+
+        for r in &res {
+            println!("res: {:?}", r);
         }
+
+        res
 
         // let eq1 = if  {
 
@@ -326,6 +359,7 @@ impl Ellipse {
 #[cfg(test)]
 mod tests {
     use nannou::math::num_traits::Pow;
+    use roots::Roots;
 
     use crate::utils::deg_to_rad;
 
@@ -474,5 +508,19 @@ mod tests {
         do_assert(fun1);
         do_assert(fun2);
         //do_assert(fun3);
+    }
+
+    #[test]
+    fn rots() {
+        let den = 100000.;
+        //530586800 * x^4 + (-3043730000) * x^3 + 5108047400 * x^2 + (-3046621000) * x + 502631040 = 0;
+        let roots = roots::find_roots_quartic(
+            530586800_f32 / den,
+            -3043730000_f32 / den,
+            5108047400_f32 / den,
+            -3046621000_f32 / den,
+            502631040_f32 / den,
+        );
+        assert_eq!(roots, Roots::Four([0.26496, 0.81798, 1.30545, 3.34813]))
     }
 }

@@ -7,12 +7,10 @@ mod plot;
 mod utils;
 
 use chromosome::{Chromosome, Fitness, FitnessSelector, SimulationIter};
-use ellipse::Ellipse;
+use ellipse::{Ellipse, D};
 use line::Line;
 use nannou::{
-    draw::{primitive, Drawing},
-    image::{DynamicImage, GenericImage as _, GenericImageView, RgbaImage},
-    prelude::*,
+    color::ComponentWise, draw::{primitive, Drawing}, image::{DynamicImage, GenericImage as _, GenericImageView, RgbaImage}, prelude::*
 };
 use nannou_egui::{self, egui, Egui};
 use utils::deg_to_rot;
@@ -116,6 +114,7 @@ struct Windows {
 struct Model<R: rand::RngCore> {
     e0: EllipseState,
     e1: EllipseState,
+    common_tangents: Vec<(Line, D)>,
     cursor_pos: Point2,
     sim: SimulationIter<f32, Range<f32>, FitnessSelector<TangentFitness>, R>,
     population: Vec<Chromosome<f32>>,
@@ -186,6 +185,7 @@ fn model(app: &App) -> Model<impl rand::RngCore> {
             is_grabbed_to_rotate: false,
             is_grabbed_to_scale: false,
         },
+        common_tangents: vec![],
         cursor_pos: pt2(0., 0.),
         sim,
         population: vec![],
@@ -304,14 +304,18 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
 
             ui.label("Scale:");
             ui.add(egui::Slider::new(&mut settings.scale, 0.1..=10000.));
-            ui.label("K:");
+            ui.label("θ:");
             ui.add(egui::Slider::new(theta, (0.)..=360.).step_by(1.));
 
             let k = deg_to_rad(*theta).tan();
+            ui.label(format!("K: {}", k));
+
             let outer = model.e0.ellipse.outer_tangents_fun(&model.e1.ellipse, k);
             ui.label(format!("result: {:?}", outer));
         });
     }
+
+    model.common_tangents = model.e0.ellipse.common_tangents(&model.e1.ellipse);
 
     fill_image(app, model);
 }
@@ -484,12 +488,16 @@ fn view<R: rand::RngCore>(app: &App, model: &Model<R>, frame: Frame) {
         .y(model.cursor_pos.y)
         .color(BLACK);
 
-    let commont_tangents = model.e0.ellipse.common_tangents(&model.e1.ellipse);
-
-    for t in commont_tangents {
-        draw_line(&draw, t)
-            .stroke_weight(2.)
+    for t in &model.common_tangents {
+        draw_line(&draw, t.0)
+            .stroke_weight(3.)
             .color(VIOLET);
+        draw_line(&draw, t.0)
+            .stroke_weight(1.)
+            .color(match  t.1 {
+                D::Left => BLACK,
+                D::Right => WHITE,
+            });
     }
 
     draw.to_frame(app, &frame).unwrap();
