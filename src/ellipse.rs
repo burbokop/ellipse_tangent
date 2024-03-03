@@ -6,13 +6,13 @@ use nannou::{
 use crate::{line::Line, utils::notmalize_array};
 
 #[derive(Debug, Clone)]
-pub(crate) struct Ellipse {
-    pub(crate) x: f32,
-    pub(crate) y: f32,
-    pub(crate) a: f32,
-    pub(crate) b: f32,
-    pub(crate) r: f32,
-    pub(crate) i: f32,
+pub struct Ellipse {
+    pub x: f32,
+    pub y: f32,
+    pub a: f32,
+    pub b: f32,
+    pub r: f32,
+    pub i: f32,
 }
 
 // (x-x0)^2 / a^2 + (y-y0)^2 / b^2 = 1
@@ -27,13 +27,13 @@ pub(crate) struct Ellipse {
 // (r*(x - x0) - i*(y - y0))^2 / a^2 + (r*(y - y0) + i*(x - x0))^2 / b^2 = 1
 
 #[derive(Debug, Clone)]
-pub enum D {
+pub enum TangentDirection {
     Left,
     Right,
 }
 
 impl Ellipse {
-    pub(crate) fn new(x: f32, y: f32, a: f32, b: f32, theta: f32) -> Self {
+    pub fn new(x: f32, y: f32, a: f32, b: f32, theta: f32) -> Self {
         Self {
             x,
             y,
@@ -48,7 +48,7 @@ impl Ellipse {
         (x - self.x).pow(2.) / self.a.pow(2.) + (y - self.y).pow(2.) / self.b.pow(2.) - 1.
     }
 
-    pub(crate) fn eq(&self) -> impl FnOnce(f32, f32) -> f32 {
+    pub fn eq(&self) -> impl FnOnce(f32, f32) -> f32 {
         let x_0 = self.x;
         let y_0 = self.y;
         let a = self.a;
@@ -87,7 +87,7 @@ impl Ellipse {
     /// -(4 * (a^2 * (-k^2 * r^2 - 2 * i * k * r - i^2) + b^2 * (-i^2 * k^2 + 2 * i * k * r - r^2) + (r^4 + 2 * i^2 * r^2 + i^4) * (d^2 + 2 * d * (k * x_0 - y_0) + k^2 * x_0^2 - 2 * k * x_0 * y_0 + y_0^2))) / (a^2 * b^2)
     /// -(4 * (a_0^2 * (-k^2 * r_0^2 - 2 * i_0 * k * r_0 - i_0^2) + b_0^2 * (-i_0^2 * k^2 + 2 * i_0 * k * r_0 - r_0^2) + (r_0^4 + 2 * i_0^2 * r_0^2 + i_0^4) * (d^2 + 2 * d * (k * x_0 - y_0) + k^2 * x_0^2 - 2 * k * x_0 * y_0 + y_0^2))) / (a_0^2 * b_0^2)
     /// -(4 * (a_1^2 * (-k^2 * r_1^2 - 2 * i_1 * k * r_1 - i_1^2) + b_1^2 * (-i_1^2 * k^2 + 2 * i_1 * k * r_1 - r_1^2) + (r_1^4 + 2 * i_1^2 * r_1^2 + i_1^4) * (d^2 + 2 * d * (k * x_1 - y_1) + k^2 * x_1^2 - 2 * k * x_1 * y_1 + y_1^2))) / (a_1^2 * b_1^2)
-    pub(crate) fn intersection_discriminant(&self, line: Line) -> f32 {
+    pub fn intersection_discriminant(&self, line: Line) -> f32 {
         let x_0 = self.x;
         let y_0 = self.y;
         let a = self.a;
@@ -107,7 +107,7 @@ impl Ellipse {
     }
 
     /// returns `d` by given `k` where `y = kx + d` is a tangent to ellipse
-    pub(crate) fn tangent_d(&self, k: f32) -> (f32, f32) {
+    pub fn tangent_d(&self, k: f32) -> (f32, f32) {
         let x_0 = self.x;
         let y_0 = self.y;
         let a = self.a;
@@ -122,10 +122,8 @@ impl Ellipse {
         (base + discriminant.sqrt(), base - discriminant.sqrt())
     }
 
-    pub(crate) fn xxx() {}
-
     /// intersection of this function with y = 0 is where common outer tangents are
-    pub(crate) fn outer_tangents_fun(&self, rhs: &Ellipse, k: f32) -> (f32, f32) {
+    pub fn outer_tangents_fun(&self, rhs: &Ellipse, k: f32) -> (f32, f32) {
         let x_0 = self.x;
         let y_0 = self.y;
         let a_0 = self.a;
@@ -151,7 +149,7 @@ impl Ellipse {
         (lhs - rhs, lhs + rhs)
     }
 
-    pub(crate) fn common_tangents(&self, rhs: &Ellipse) -> Vec<(Line, D)> {
+    pub fn common_tangents(&self, rhs: &Ellipse) -> Vec<(Line, TangentDirection)> {
         let x_0 = self.x;
         let y_0 = self.y;
         let a_0 = self.a;
@@ -194,8 +192,8 @@ impl Ellipse {
             w: f32,
             l: f32,
             roots: [f32; N],
-        ) -> impl Iterator<Item = (Line, D)> + 'a {
-            println!("roots: {:?}", roots);
+        ) -> impl Iterator<Item = (Line, TangentDirection)> + 'a {
+            //println!("roots: {:?}", roots);
             roots
                 .into_iter()
                 .filter(move |k: &f32| k.pow(2.) * j + k * w + l >= 0.)
@@ -208,19 +206,19 @@ impl Ellipse {
                     let mut vec = Vec::new();
 
                     if (d_0.0 - d_1.0).abs() < err || (d_0.0 - d_1.1).abs() < err {
-                        vec.push((Line { k, d: d_0.0 }, D::Left))
+                        vec.push((Line { k, d: d_0.0 }, TangentDirection::Left))
                     }
                     if (d_0.1 - d_1.0).abs() < err || (d_0.1 - d_1.1).abs() < err {
-                        vec.push((Line { k, d: d_0.1 }, D::Right))
+                        vec.push((Line { k, d: d_0.1 }, TangentDirection::Right))
                     }
                     vec
                 })
                 .flatten()
         }
 
-        println!("pol: {}, {}, {}, {}, {}", o, p, v, u, m);
+        //println!("pol: {}, {}, {}, {}, {}", o, p, v, u, m);
         let norm = notmalize_array([o, p, v, u, m]);
-        println!("norm: {:?}", norm);
+        //println!("norm: {:?}", norm);
 
         let res = match roots::find_roots_quartic(norm[0], norm[1], norm[2], norm[3], norm[4]) {
             roots::Roots::No(roots) => pp(self, rhs, j, w, l, roots).collect(),
@@ -230,9 +228,9 @@ impl Ellipse {
             roots::Roots::Four(roots) => pp(self, rhs, j, w, l, roots).collect(),
         };
 
-        for r in &res {
-            println!("res: {:?}", r);
-        }
+        // for r in &res {
+        //     println!("res: {:?}", r);
+        // }
 
         res
 
@@ -248,7 +246,7 @@ impl Ellipse {
         //(eq0 / 100., eq1 / 20000000.)
     }
 
-    pub(crate) fn tangent_k_alg(&self, rhs: &Ellipse, k: f32) -> (f32, f32) {
+    pub fn tangent_k_alg(&self, rhs: &Ellipse, k: f32) -> (f32, f32) {
         let x_0 = self.x;
         let y_0 = self.y;
         let a_0 = self.a;

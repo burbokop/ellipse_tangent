@@ -1,19 +1,14 @@
-use std::{fmt::format, ops::Range};
+use std::{ops::Range};
 
-mod ellipse;
-mod line;
 mod md_array;
 mod plot;
-mod utils;
 
 use chromosome::{Chromosome, Fitness, FitnessSelector, SimulationIter};
-use ellipse::{Ellipse, D};
-use line::Line;
+use ellipse_tangent::{ellipse::{Ellipse, TangentDirection}, line::Line, utils::deg_to_rot};
 use nannou::{
-    color::ComponentWise, draw::{primitive, Drawing}, image::{DynamicImage, GenericImage as _, GenericImageView, RgbaImage}, prelude::*
+    draw::{primitive, Drawing}, image::{DynamicImage, GenericImage as _, GenericImageView, RgbaImage}, prelude::*
 };
 use nannou_egui::{self, egui, Egui};
-use utils::deg_to_rot;
 
 use crate::md_array::MdArray;
 
@@ -114,7 +109,7 @@ struct Windows {
 struct Model<R: rand::RngCore> {
     e0: EllipseState,
     e1: EllipseState,
-    common_tangents: Vec<(Line, D)>,
+    common_tangents: Vec<(Line, TangentDirection)>,
     cursor_pos: Point2,
     sim: SimulationIter<f32, Range<f32>, FitnessSelector<TangentFitness>, R>,
     population: Vec<Chromosome<f32>>,
@@ -495,8 +490,8 @@ fn view<R: rand::RngCore>(app: &App, model: &Model<R>, frame: Frame) {
         draw_line(&draw, t.0)
             .stroke_weight(1.)
             .color(match  t.1 {
-                D::Left => BLACK,
-                D::Right => WHITE,
+                TangentDirection::Left => BLACK,
+                TangentDirection::Right => WHITE,
             });
     }
 

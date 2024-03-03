@@ -1,3 +1,8 @@
+use ellipse_tangent::{
+    ellipse::TangentDirection,
+    line::Line,
+    utils::{deg_to_rad, mul_tuple2},
+};
 use nannou::{
     color::{
         IntoLinSrgba, Srgb, BLACK, BLUE, DARKSLATEGREY, LIGHTBLUE, LIGHTPINK, RED, VIOLET, WHITE,
@@ -11,12 +16,7 @@ use nannou::{
     App, Draw, Frame,
 };
 
-use crate::{
-    ellipse::D,
-    line::Line,
-    utils::{deg_to_rad, mul_tuple2},
-    Model,
-};
+use crate::Model;
 
 pub fn new_plot_window(app: &App) -> Id {
     app.new_window()
@@ -76,7 +76,7 @@ fn draw_plot<C>(
     colors: [C; 2],
     magnification: (f32, f32),
     current_k: f32,
-    common_tangents: &[(Line, D)],
+    common_tangents: &[(Line, TangentDirection)],
 ) where
     C: IntoLinSrgba<ColorScalar> + Clone,
 {
@@ -109,8 +109,8 @@ fn draw_plot<C>(
         let y = (v.0 * magnification.1, v.1 * magnification.1);
 
         let color = match t.1 {
-            D::Left => BLACK,
-            D::Right => WHITE,
+            TangentDirection::Left => BLACK,
+            TangentDirection::Right => WHITE,
         };
 
         draw.ellipse()
