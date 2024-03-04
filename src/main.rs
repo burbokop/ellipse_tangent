@@ -1,12 +1,18 @@
-use std::{ops::Range};
+use std::ops::Range;
 
 mod md_array;
 mod plot;
 
 use chromosome::{Chromosome, Fitness, FitnessSelector, SimulationIter};
-use ellipse_tangent::{ellipse::{Ellipse, TangentDirection}, line::Line, utils::deg_to_rot};
+use ellipse_tangent::{
+    ellipse::{Ellipse, TangentDirection},
+    line::Line,
+    utils::deg_to_rot,
+};
 use nannou::{
-    draw::{primitive, Drawing}, image::{DynamicImage, GenericImage as _, GenericImageView, RgbaImage}, prelude::*
+    draw::{primitive, Drawing},
+    image::{DynamicImage, GenericImage as _, GenericImageView, RgbaImage},
+    prelude::*,
 };
 use nannou_egui::{self, egui, Egui};
 
@@ -307,6 +313,12 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
 
             let outer = model.e0.ellipse.outer_tangents_fun(&model.e1.ellipse, k);
             ui.label(format!("result: {:?}", outer));
+
+            let i_d = model
+                .e0
+                .ellipse
+                .common_tangents_intermediate_data(&model.e1.ellipse);
+            ui.label(format!("i.d.: {:#?}", i_d));
         });
     }
 
@@ -484,15 +496,11 @@ fn view<R: rand::RngCore>(app: &App, model: &Model<R>, frame: Frame) {
         .color(BLACK);
 
     for t in &model.common_tangents {
-        draw_line(&draw, t.0)
-            .stroke_weight(3.)
-            .color(VIOLET);
-        draw_line(&draw, t.0)
-            .stroke_weight(1.)
-            .color(match  t.1 {
-                TangentDirection::Left => BLACK,
-                TangentDirection::Right => WHITE,
-            });
+        draw_line(&draw, t.0).stroke_weight(3.).color(VIOLET);
+        draw_line(&draw, t.0).stroke_weight(1.).color(match t.1 {
+            TangentDirection::Left => BLACK,
+            TangentDirection::Right => WHITE,
+        });
     }
 
     draw.to_frame(app, &frame).unwrap();
