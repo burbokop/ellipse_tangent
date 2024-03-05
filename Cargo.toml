@@ -5,15 +5,27 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[[bin]]
+name = "ellipse_tangent_simulator"
+path = "src/main.rs"
+required-features = ["simulator"]
+
+[features]
+simulator = ["nannou", "nannou_egui", "chromosome", "rand"]
+android = ["android-activity"]
+
 [dependencies]
-nannou = "0.19.0"
-nannou_egui = "0.19.0"
-chromosome = "0.1.0"
-rand = "0.8.5"
+num-traits = "0.2.18"
 roots = "0.0.8"
 
+nannou = { version = "0.19.0", optional = true }
+nannou_egui = { version = "0.19.0", optional = true }
+chromosome = { version = "0.1.0", optional = true }
+rand = { version = "0.8.5", optional = true }
+android-activity = { version = "0.4.3", features = [ "native-activity" ], optional = true }
+
 [dev-dependencies]
-criterion = "0.4.0"
+criterion = "0.5.1"
 
 [[bench]]
 name = "benchmark"

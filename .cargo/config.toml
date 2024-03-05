@@ -1,0 +1,7 @@
+[target.aarch64-linux-android]
+linker = "aarch64-linux-android26-clang++"
+runner = "./scripts/run-on-android.sh"
+
+[target.armv7-linux-androideabi]
+linker = "armv7a-linux-androideabi26-clang++"
+runner = "./scripts/run-on-android.sh"

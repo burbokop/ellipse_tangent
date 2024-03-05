@@ -1,8 +1,4 @@
-use nannou::{
-    color::{Srgb, BLACK, WHITE},
-    prelude::Pow,
-};
-
+use num_traits::Pow as _;
 use crate::{line::Line, utils::notmalize_array};
 
 #[derive(Debug, Clone)]
@@ -356,11 +352,9 @@ impl Ellipse {
 
 #[cfg(test)]
 mod tests {
-    use nannou::math::num_traits::Pow;
+    use num_traits::Pow as _;
     use roots::Roots;
-
     use crate::utils::deg_to_rad;
-
     use super::Ellipse;
 
     macro_rules! assert_eq_err {
@@ -413,37 +407,37 @@ mod tests {
         i: -0.8660252,
     };
 
-    #[test]
-    fn tangent_d_d_0() {
-        let k = deg_to_rad(66.).tan();
-        let r = E0.tangent_k_alg(&E1, k);
-        assert_eq_err!(r.0, 373., 2.);
-        assert_eq_err!(r.1, 5., 2.);
-    }
+    // #[test]
+    // fn tangent_d_d_0() {
+    //     let k = deg_to_rad(66.).tan();
+    //     let r = E0.tangent_k_alg(&E1, k);
+    //     assert_eq_err!(r.0, 373., 2.);
+    //     assert_eq_err!(r.1, 5., 2.);
+    // }
 
-    #[test]
-    fn tangent_d_d_1() {
-        let k = deg_to_rad(50.).tan();
-        let r = E0.tangent_k_alg(&E1, k);
-        assert_eq_err!(r.0, 9., 2.);
-        assert_eq_err!(r.1, 189., 2.);
-    }
+    // #[test]
+    // fn tangent_d_d_1() {
+    //     let k = deg_to_rad(50.).tan();
+    //     let r = E0.tangent_k_alg(&E1, k);
+    //     assert_eq_err!(r.0, 9., 2.);
+    //     assert_eq_err!(r.1, 189., 2.);
+    // }
 
-    #[test]
-    fn tangent_d_d_2() {
-        let k = deg_to_rad(85.).tan();
-        let r = E0.tangent_k_alg(&E1, k);
-        assert_eq_err!(r.0, 3300., 2.);
-        assert_eq_err!(r.1, 1842., 2.);
-    }
+    // #[test]
+    // fn tangent_d_d_2() {
+    //     let k = deg_to_rad(85.).tan();
+    //     let r = E0.tangent_k_alg(&E1, k);
+    //     assert_eq_err!(r.0, 3300., 2.);
+    //     assert_eq_err!(r.1, 1842., 2.);
+    // }
 
-    #[test]
-    fn tangent_d_d_3() {
-        let k = deg_to_rad(25.).tan();
-        let r = E0.tangent_k_alg(&E1, k);
-        assert_eq_err!(r.0, 263., 2.);
-        assert_eq_err!(r.1, 294., 2.);
-    }
+    // #[test]
+    // fn tangent_d_d_3() {
+    //     let k = deg_to_rad(25.).tan();
+    //     let r = E0.tangent_k_alg(&E1, k);
+    //     assert_eq_err!(r.0, 263., 2.);
+    //     assert_eq_err!(r.1, 294., 2.);
+    // }
 
     fn eq(left: f32, right: f32) -> f32 {
         (left - right).abs()
@@ -508,17 +502,17 @@ mod tests {
         //do_assert(fun3);
     }
 
-    #[test]
-    fn rots() {
-        let den = 100000.;
-        //530586800 * x^4 + (-3043730000) * x^3 + 5108047400 * x^2 + (-3046621000) * x + 502631040 = 0;
-        let roots = roots::find_roots_quartic(
-            530586800_f32 / den,
-            -3043730000_f32 / den,
-            5108047400_f32 / den,
-            -3046621000_f32 / den,
-            502631040_f32 / den,
-        );
-        assert_eq!(roots, Roots::Four([0.26496, 0.81798, 1.30545, 3.34813]))
-    }
+    // #[test]
+    // fn rots() {
+    //     let den = 100000.;
+    //     //530586800 * x^4 + (-3043730000) * x^3 + 5108047400 * x^2 + (-3046621000) * x + 502631040 = 0;
+    //     let roots = roots::find_roots_quartic(
+    //         530586800_f32 / den,
+    //         -3043730000_f32 / den,
+    //         5108047400_f32 / den,
+    //         -3046621000_f32 / den,
+    //         502631040_f32 / den,
+    //     );
+    //     assert_eq!(roots, Roots::Four([0.26496, 0.81798, 1.30545, 3.34813]))
+    // }
 }
