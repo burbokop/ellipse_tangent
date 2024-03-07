@@ -1,18 +1,7 @@
 [package]
 name = "ellipse_tangent"
-version = "0.1.0"
+version = "0.0.1"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[[bin]]
-name = "ellipse_tangent_simulator"
-path = "src/main.rs"
-required-features = ["simulator"]
-
-[features]
-simulator = ["nannou", "nannou_egui", "chromosome", "rand"]
-android = ["android-activity"]
 
 [dependencies]
 num-traits = "0.2.18"
@@ -22,15 +11,13 @@ polynomial-ring = "0.5.0"
 num = "0.4.1"
 rustnomial = { git = "https://github.com/philippeitis/rustnomial.git" }
 
-nannou = { version = "0.19.0", optional = true }
-nannou_egui = { version = "0.19.0", optional = true }
-chromosome = { version = "0.1.0", optional = true }
-rand = { version = "0.8.5", optional = true }
-android-activity = { version = "0.4.3", features = [ "native-activity" ], optional = true }
-
 [dev-dependencies]
 criterion = "0.5.1"
+rand = "0.8.5"
 
 [[bench]]
 name = "benchmark"
 harness = false
+
+[workspace]
+members = [ "examples/simulator" ]
