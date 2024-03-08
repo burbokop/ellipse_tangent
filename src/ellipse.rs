@@ -1,7 +1,10 @@
 use num_traits::Pow as _;
 use rustnomial::Polynomial;
 
-use crate::{line::Line, utils::{notmalize_array_around_one, SignedSqr as _, SignedSqrt as _}};
+use crate::{
+    line::Line,
+    utils::{notmalize_array_around_one, SignedSqr as _, SignedSqrt as _},
+};
 
 #[derive(Debug, Clone)]
 pub struct Ellipse {
@@ -41,11 +44,7 @@ pub struct CommonTangentsIntermediateData {
     j: f32,
     w: f32,
     l: f32,
-    o: f32,
-    p: f32,
-    v: f32,
-    u: f32,
-    m: f32,
+    p: [f32; 4],
 }
 
 impl Ellipse {
@@ -191,6 +190,7 @@ impl Ellipse {
         let dx = (x_1 - x_0).ssqr() / c;
         let dy = (y_1 - y_0).ssqr() / c;
 
+
         // println!(
         //     "before: {}, {}, {}, {}, {}, {}, {}, {}",
         //     f_0, g_0, h_0, f_1, g_1, h_1, dx, dy
@@ -225,11 +225,7 @@ impl Ellipse {
             j,
             w,
             l,
-            o,
-            p,
-            v,
-            u,
-            m,
+            p: [p / o, v / o, u / o, m / o],
         }
     }
 
@@ -245,10 +241,13 @@ impl Ellipse {
             roots: &'a [f32],
         ) -> impl Iterator<Item = (Line, TangentDirection)> + 'a {
             //println!("roots: {:?}", roots);
+            if roots.is_empty() {
+                println!("x")
+            }
             roots
                 .iter()
                 .filter(move |k| k.pow(2.) * j + *k * w + l >= 0.)
-                .map(|k| {
+                .flat_map(|k| {
                     let d_0 = e0.tangent_d(*k);
                     let d_1 = e1.tangent_d(*k);
 
@@ -264,30 +263,73 @@ impl Ellipse {
                     }
                     vec
                 })
-                .flatten()
         }
 
         //println!("pol: {}, {}, {}, {}, {}", o, p, v, u, m);
         //let norm = notmalize_array([id.o, id.p, id.v, id.u, id.m]);
         //println!("norm: {:?}", norm);
 
-        let poly = Polynomial::<f64>::new(vec![id.o as f64, id.p as f64, id.v as f64, id.u as f64, id.m as f64]);
+        let poly = Polynomial::<f64>::new(vec![
+            1.,
+            id.p[0] as f64,
+            id.p[1] as f64,
+            id.p[2] as f64,
+            id.p[3] as f64,
+        ]);
 
         //println!("roots2: {:?}", );
+
+        //let r =  roots::find_roots_sturm(&id.p, &mut 1e-6);
+
+        //println!("r: {:?}", r);
 
         let res = match poly.roots() {
             rustnomial::Roots::NoRoots => pp(self, rhs, id.j, id.w, id.l, &[]).collect(),
             rustnomial::Roots::NoRootsFound => pp(self, rhs, id.j, id.w, id.l, &[]).collect(),
-            rustnomial::Roots::OneRealRoot(root) => pp(self, rhs, id.j, id.w, id.l, &[root as f32]).collect(),
-            rustnomial::Roots::TwoRealRoots(r0, r1) => pp(self, rhs, id.j, id.w, id.l, &[r0 as f32, r1 as f32]).collect(),
-            rustnomial::Roots::ThreeRealRoots(r0, r1, r2) => pp(self, rhs, id.j, id.w, id.l, &[r0 as f32, r1 as f32, r2 as f32]).collect(),
-            rustnomial::Roots::ManyRealRoots(roots) => pp(self, rhs, id.j, id.w, id.l, &roots.iter().map(|x| *x as f32).collect::<Vec<_>>()).collect(),
+            rustnomial::Roots::OneRealRoot(root) => {
+                pp(self, rhs, id.j, id.w, id.l, &[root as f32]).collect()
+            }
+            rustnomial::Roots::TwoRealRoots(r0, r1) => {
+                pp(self, rhs, id.j, id.w, id.l, &[r0 as f32, r1 as f32]).collect()
+            }
+            rustnomial::Roots::ThreeRealRoots(r0, r1, r2) => pp(
+                self,
+                rhs,
+                id.j,
+                id.w,
+                id.l,
+                &[r0 as f32, r1 as f32, r2 as f32],
+            )
+            .collect(),
+            rustnomial::Roots::ManyRealRoots(roots) => pp(
+                self,
+                rhs,
+                id.j,
+                id.w,
+                id.l,
+                &roots.iter().map(|x| *x as f32).collect::<Vec<_>>(),
+            )
+            .collect(),
             rustnomial::Roots::OneComplexRoot(_) => pp(self, rhs, id.j, id.w, id.l, &[]).collect(),
-            rustnomial::Roots::TwoComplexRoots(_, _) => pp(self, rhs, id.j, id.w, id.l, &[]).collect(),
-            rustnomial::Roots::ThreeComplexRoots(_, _, _) => pp(self, rhs, id.j, id.w, id.l, &[]).collect(),
-            rustnomial::Roots::ManyComplexRoots(_) => pp(self, rhs, id.j, id.w, id.l, &[]).collect(),
+            rustnomial::Roots::TwoComplexRoots(_, _) => {
+                pp(self, rhs, id.j, id.w, id.l, &[]).collect()
+            }
+            rustnomial::Roots::ThreeComplexRoots(_, _, _) => {
+                pp(self, rhs, id.j, id.w, id.l, &[]).collect()
+            }
+            rustnomial::Roots::ManyComplexRoots(_) => {
+                pp(self, rhs, id.j, id.w, id.l, &[]).collect()
+            }
             rustnomial::Roots::InfiniteRoots => pp(self, rhs, id.j, id.w, id.l, &[]).collect(),
-            rustnomial::Roots::OnlyRealRoots(roots) => pp(self, rhs, id.j, id.w, id.l, &roots.iter().map(|x| *x as f32).collect::<Vec<_>>()).collect(),
+            rustnomial::Roots::OnlyRealRoots(roots) => pp(
+                self,
+                rhs,
+                id.j,
+                id.w,
+                id.l,
+                &roots.iter().map(|x| *x as f32).collect::<Vec<_>>(),
+            )
+            .collect(),
         };
 
         // let res = match roots::find_roots_quartic(id.o, id.p, id.v, id.u, id.m) {
@@ -423,10 +465,10 @@ impl Ellipse {
 
 #[cfg(test)]
 mod tests {
+    use super::Ellipse;
+    use crate::utils::deg_to_rad;
     use num_traits::Pow as _;
     use roots::Roots;
-    use crate::utils::deg_to_rad;
-    use super::Ellipse;
 
     macro_rules! assert_eq_err {
         ($x: expr, $y: expr, $err: expr) => {
