@@ -3,7 +3,7 @@ use rustnomial::Polynomial;
 
 use crate::{
     line::Line,
-    utils::{notmalize_array_around_one, SignedSqr as _, SignedSqrt as _},
+    utils::{deg_to_rad, deg_to_rot, notmalize_array_around_one, SignedSqr as _, SignedSqrt as _},
 };
 
 #[derive(Debug, Clone)]
@@ -71,8 +71,10 @@ impl Ellipse {
         let r = self.r;
         let i = self.i;
         move |x, y| {
-            (r * (x - x_0) - i * (y - y_0)).pow(2.) / a.pow(2.)
-                + (r * (y - y_0) + i * (x - x_0)).pow(2.) / b.pow(2.)
+            (r * (x - x_0) - i * (y - y_0)).pow(2.)
+                / a.pow(2.)
+          + (r * (y - y_0) + i * (x - x_0)).pow(2.)
+                / b.pow(2.)
                 - 1.
         }
     }
@@ -135,7 +137,7 @@ impl Ellipse {
     }
 
     /// intersection of this function with y = 0 is where common outer tangents are
-    pub fn outer_tangents_fun(&self, rhs: &Ellipse, k: f32) -> (f32, f32) {
+    pub fn outer_tangents_sdf(&self, rhs: &Ellipse, k: f32) -> (f32, f32) {
         let x_0 = self.x;
         let y_0 = self.y;
         let a_0 = self.a;
@@ -215,6 +217,8 @@ impl Ellipse {
         let u = 2. * w * l - 4. * g_1 * h_0 - 4. * h_1 * g_0;
         let m = l.pow(2.) - 4. * h_1 * h_0;
 
+        //ox^4 + px^3 + vx^2 + ux + m = 0;
+
         CommonTangentsIntermediateData {
             f_0,
             g_0,
@@ -227,6 +231,80 @@ impl Ellipse {
             l,
             p: [p / o, v / o, u / o, m / o],
         }
+    }
+
+    pub fn common_tangents2(&self, rhs: &Ellipse, acc: f32) -> Vec<(Line, TangentDirection)> {
+        let mut left_limit = 0_f32;
+        let mut right_limit = 360_f32;
+
+        for _ in 0..100 {
+            let delta = (left_limit - right_limit).abs() / 4.;
+            let center = (left_limit + right_limit) / 2.;
+
+            let k_a = deg_to_rad(center - delta).tan();
+            let k_b = deg_to_rad(center + delta).tan();
+
+            let a = self.outer_tangents_sdf(rhs, k_a).0;
+            let b = self.outer_tangents_sdf(rhs, k_b).0;
+
+            let min_k;
+
+            if a.abs() < b.abs() {
+                min_k = k_a;
+                //left_limit = left_limit;
+                right_limit = center;
+            } else {
+                min_k = k_b;
+                left_limit = center;
+                //right_limit = right_limit;
+            }
+
+            if a.abs().min(b.abs()) < acc {
+                let d = self.tangent_d(min_k);
+                return vec![
+                    (Line { k: min_k, d: d.0 }, TangentDirection::Left),
+                    (Line { k: min_k, d: d.1 }, TangentDirection::Right)
+                ]
+            }
+        }
+        vec![]
+    }
+
+    pub fn common_tangents3(&self, rhs: &Ellipse) -> Vec<(Line, TangentDirection)> {
+        let mut min_res = (f32::MAX, f32::MAX);
+        let mut min_k = (f32::MAX, f32::MAX);
+        for theta in 0..360 {
+            let k = deg_to_rad(theta as f32).tan();
+
+            let res = self.outer_tangents_sdf(rhs, k);
+
+            if res.0.abs() < min_res.0 {
+                min_res.0 = res.0.abs();
+                min_k.0 = k;
+            }
+
+            if res.1.abs() < min_res.1 {
+                min_res.1 = res.1.abs();
+                min_k.1 = k;
+            }
+        }
+
+        let d_0 = self.tangent_d(min_k.0);
+        let d_1 = self.tangent_d(min_k.1);
+
+        vec![ (Line {
+            k: min_k.0,
+            d: d_0.0
+        }, TangentDirection::Left), (Line {
+            k: min_k.0,
+            d: d_0.1
+        }, TangentDirection::Left),(Line {
+            k: min_k.1,
+            d: d_1.0
+        }, TangentDirection::Left), (Line {
+            k: min_k.1,
+            d: d_1.1
+        }, TangentDirection::Left) ]
     }
 
     pub fn common_tangents(&self, rhs: &Ellipse) -> Vec<(Line, TangentDirection)> {
@@ -242,7 +320,7 @@ impl Ellipse {
         ) -> impl Iterator<Item = (Line, TangentDirection)> + 'a {
             //println!("roots: {:?}", roots);
             if roots.is_empty() {
-                println!("x")
+                //println!("x")
             }
             roots
                 .iter()
@@ -373,7 +451,7 @@ impl Ellipse {
         let r_1 = rhs.r;
         let i_1 = rhs.i;
 
-        let eq = |left: f32, right: f32| (left - right).abs();
+        let eq = |left: f32, right: f32| left - right;
 
         let f_0 = (a_0 * r_0).pow(2.) + (b_0 * i_0).pow(2.);
         let g_0 = 2. * i_0 * r_0 * (a_0.pow(2.) - b_0.pow(2.));

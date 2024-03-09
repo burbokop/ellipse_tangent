@@ -290,6 +290,8 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
         //println!("nothing to do");
     }
 
+    let mut acc = 0_f32;
+
     {
         let egui = &mut model.egui;
         let settings = &mut model.settings;
@@ -307,11 +309,13 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
             ui.add(egui::Slider::new(&mut settings.scale, 0.1..=10000.));
             ui.label("θ:");
             ui.add(egui::Slider::new(theta, (0.)..=360.).step_by(1.));
+            ui.label("acc:");
+            ui.add(egui::Slider::new(&mut acc, (0.01)..=1.).step_by(0.01));
 
             let k = deg_to_rad(*theta).tan();
             ui.label(format!("K: {}", k));
 
-            let outer = model.e0.ellipse.outer_tangents_fun(&model.e1.ellipse, k);
+            let outer = model.e0.ellipse.outer_tangents_sdf(&model.e1.ellipse, k);
             ui.label(format!("result: {:?}", outer));
 
             let i_d = model
@@ -322,7 +326,7 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
         });
     }
 
-    model.common_tangents = model.e0.ellipse.common_tangents(&model.e1.ellipse);
+    model.common_tangents = model.e0.ellipse.common_tangents2(&model.e1.ellipse, acc);
 
     fill_image(app, model);
 }

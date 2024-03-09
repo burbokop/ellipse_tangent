@@ -159,7 +159,7 @@ fn view<R: rand::RngCore>(app: &App, model: &Model<R>, frame: Frame) {
         &draw,
         |k| {
             mul_tuple2(
-                model.e0.ellipse.outer_tangents_fun(&model.e1.ellipse, k),
+                model.e0.ellipse.outer_tangents_sdf(&model.e1.ellipse, k),
                 (2., 2.),
             )
         },

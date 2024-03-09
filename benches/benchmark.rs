@@ -36,6 +36,18 @@ fn common_tangents(c: &mut Criterion) {
         let ellipse1 = new_rand_ellipse(&mut rng);
         b.iter(|| ellipse0.common_tangents(black_box(&ellipse1)))
     });
+
+    c.bench_function("random common_tangents2", |b|{
+        let ellipse0 = new_rand_ellipse(&mut rng);
+        let ellipse1 = new_rand_ellipse(&mut rng);
+        b.iter(|| ellipse0.common_tangents2(black_box(&ellipse1), 0.0001))
+    });
+
+    c.bench_function("random common_tangents3", |b|{
+        let ellipse0 = new_rand_ellipse(&mut rng);
+        let ellipse1 = new_rand_ellipse(&mut rng);
+        b.iter(|| ellipse0.common_tangents3(black_box(&ellipse1)))
+    });
 }
 
 criterion_group!(benches, common_tangents);
