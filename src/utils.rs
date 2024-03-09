@@ -14,6 +14,10 @@ pub fn mul_tuple2(lhs: (f32, f32), rhs: (f32, f32)) -> (f32, f32) {
     (lhs.0 * rhs.0, lhs.1 * rhs.1)
 }
 
+pub fn mul_arr<const N: usize>(lhs: [f32; N], rhs: [f32; N]) -> [f32; N] {
+    lhs.into_iter().zip(rhs).map(|(l, r)| l * r).collect::<Vec<_>>().try_into().unwrap()
+}
+
 pub fn notmalize_array<T, const N: usize>(mut v: [T; N]) -> [T; N]
 where
     T: PartialOrd,

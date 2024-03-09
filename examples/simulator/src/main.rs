@@ -315,6 +315,9 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
             let k = deg_to_rad(*theta).tan();
             ui.label(format!("K: {}", k));
 
+            ui.label(format!("ell_0.D: {:?}", model.e0.ellipse.tangent_d(k)));
+            ui.label(format!("ell_1.D: {:?}", model.e1.ellipse.tangent_d(k)));
+
             let outer = model.e0.ellipse.outer_tangents_sdf(&model.e1.ellipse, k);
             ui.label(format!("result: {:?}", outer));
 
@@ -326,7 +329,7 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
         });
     }
 
-    model.common_tangents = model.e0.ellipse.common_tangents2(&model.e1.ellipse, acc);
+    model.common_tangents = model.e0.ellipse.common_tangents3(&model.e1.ellipse);
 
     fill_image(app, model);
 }

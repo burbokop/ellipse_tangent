@@ -1,4 +1,4 @@
-use num_traits::Pow as _;
+use num_traits::Pow;
 use rustnomial::Polynomial;
 
 use crate::{
@@ -114,10 +114,14 @@ impl Ellipse {
         let k = line.k;
         let d = line.d;
 
-        4. * ((a * (r * k + i)).pow(2.) + (b * (i * k - r)).pow(2.) - (d + k * x_0).pow(2.)
+        4. * (
+            (a * (r * k + i)).pow(2.)
+            + (b * (i * k - r)).pow(2.)
+            - (d + k * x_0).pow(2.)
             + 2. * d * y_0
             + 2. * k * x_0 * y_0
-            - y_0.pow(2.))
+            - y_0.pow(2.)
+        )
             / (a * b).pow(2.)
     }
 
@@ -130,14 +134,72 @@ impl Ellipse {
         let r = self.r;
         let i = self.i;
 
+
+
+        //let x
+//
+        //= d.pow(2.)
+        //+ d * 2. * (k * x_0 - y_0)
+        //+ (a * (r * k + i)).pow(2.)
+        //- (b * (i * k - r)).pow(2.)
+        //+ (k * x_0).pow(2.)
+        //- 2. * k * x_0 * y_0
+        //+ y_0.pow(2.)
+        //== 0.;
+//
+        //a = 1;
+        //b = 2. * (k * x_0 - y_0);
+        //c = (a * (r * k + i)).pow(2.) - (b * (i * k - r)).pow(2.) + (k * x_0).pow(2.) - 2. * k * x_0 * y_0 + y_0.pow(2.);
+
+        // let ddd
+        //     = 4. * (k * x_0 - y_0).pow(2.)
+        //     - 4. * (a * (r * k + i)).pow(2.)
+        //     + 4. * (b * (i * k - r)).pow(2.)
+        //     - 4. * (k * x_0).pow(2.)
+        //     + 4. * 2. * k * x_0 * y_0 + y_0.pow(2.)
+        // ;
+
         let discriminant = (a * (r * k + i)).pow(2.) + (b * (i * k - r)).pow(2.);
         let base = -k * x_0 + y_0;
 
         (base + discriminant.sqrt(), base - discriminant.sqrt())
     }
 
+    pub fn xx_outer_tangents_sdf(&self, rhs: &Ellipse, k: f32) -> [f32; 4] {
+        let x_0 = self.x;
+        let y_0 = self.y;
+        let a_0 = self.a;
+        let b_0 = self.b;
+        let r_0 = self.r;
+        let i_0 = self.i;
+
+        let x_1 = rhs.x;
+        let y_1 = rhs.y;
+        let a_1 = rhs.a;
+        let b_1 = rhs.b;
+        let r_1 = rhs.r;
+        let i_1 = rhs.i;
+
+        let discriminant_0 = (a_0 * (r_0 * k + i_0)).pow(2.) + (b_0 * (i_0 * k - r_0)).pow(2.);
+        let base_0 = -k * x_0 + y_0;
+        let e_0_d_0 = base_0 + discriminant_0.sqrt();
+        let e_0_d_1 = base_0 - discriminant_0.sqrt();
+
+        let discriminant_1 = (a_1 * (r_1 * k + i_1)).pow(2.) + (b_1 * (i_1 * k - r_1)).pow(2.);
+        let base_1 = -k * x_1 + y_1;
+        let e_1_d_0 = base_1 + discriminant_1.sqrt();
+        let e_1_d_1 = base_1 - discriminant_1.sqrt();
+
+        let f_0 = e_1_d_0 - e_0_d_0;
+        let f_1 = e_1_d_1 - e_0_d_0;
+        let f_2 = e_1_d_0 - e_0_d_1;
+        let f_3 = e_1_d_1 - e_0_d_1;
+
+        [f_0, f_1, f_2, f_3]
+    }
+
     /// intersection of this function with y = 0 is where common outer tangents are
-    pub fn outer_tangents_sdf(&self, rhs: &Ellipse, k: f32) -> (f32, f32) {
+    pub fn outer_tangents_sdf(&self, rhs: &Ellipse, k: f32) -> [f32; 2] {
         let x_0 = self.x;
         let y_0 = self.y;
         let a_0 = self.a;
@@ -158,7 +220,7 @@ impl Ellipse {
         let lhs = k * (x_1 - x_0) + y_0 - y_1;
         let rhs = discriminant_1.sqrt() - discriminant_0.sqrt();
 
-        (lhs - rhs, lhs + rhs)
+        [lhs - rhs, lhs + rhs]
     }
 
     pub fn common_tangents_intermediate_data(
@@ -244,8 +306,8 @@ impl Ellipse {
             let k_a = deg_to_rad(center - delta).tan();
             let k_b = deg_to_rad(center + delta).tan();
 
-            let a = self.outer_tangents_sdf(rhs, k_a).0;
-            let b = self.outer_tangents_sdf(rhs, k_b).0;
+            let a = self.outer_tangents_sdf(rhs, k_a)[0];
+            let b = self.outer_tangents_sdf(rhs, k_b)[0];
 
             let min_k;
 
@@ -278,13 +340,13 @@ impl Ellipse {
 
             let res = self.outer_tangents_sdf(rhs, k);
 
-            if res.0.abs() < min_res.0 {
-                min_res.0 = res.0.abs();
+            if res[0].abs() < min_res.0 {
+                min_res.0 = res[0].abs();
                 min_k.0 = k;
             }
 
-            if res.1.abs() < min_res.1 {
-                min_res.1 = res.1.abs();
+            if res[1].abs() < min_res.1 {
+                min_res.1 = res[1].abs();
                 min_k.1 = k;
             }
         }
@@ -436,7 +498,7 @@ impl Ellipse {
         //(eq0 / 100., eq1 / 20000000.)
     }
 
-    pub fn tangent_k_alg(&self, rhs: &Ellipse, k: f32) -> (f32, f32) {
+    pub fn tangent_k_alg(&self, rhs: &Ellipse, k: f32) -> [f32; 2] {
         let x_0 = self.x;
         let y_0 = self.y;
         let a_0 = self.a;
@@ -537,7 +599,7 @@ impl Ellipse {
         //     discriminant_1.sqrt() - discriminant_0.sqrt(),
         // );
 
-        (eq0 / 100., eq1 / 20000000.)
+        [eq0 / 100., eq1 / 20000000.]
     }
 }
 
