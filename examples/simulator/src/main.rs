@@ -6,7 +6,7 @@ mod plot;
 use chromosome::{Chromosome, Fitness, FitnessSelector, SimulationIter};
 use ellipse_tangent::{
     ellipse::{Ellipse, TangentDirection},
-    line::Line,
+    line::{Line, SimpleLine},
     utils::deg_to_rot,
 };
 use nannou::{
@@ -36,7 +36,7 @@ impl Fitness for TangentFitness {
     type Value = f32;
 
     fn fitness(&self, chromosome: &Chromosome<Self::Value>) -> Self::Value {
-        let line = Line {
+        let line = SimpleLine {
             k: chromosome.genes[0].tan(),
             d: chromosome.genes[1],
         };
@@ -54,7 +54,7 @@ impl Fitness for TangentSegmentFitness {
     type Value = f32;
 
     fn fitness(&self, chromosome: &Chromosome<Self::Value>) -> Self::Value {
-        match Line::from_points(
+        match SimpleLine::from_points(
             chromosome.genes[0],
             chromosome.genes[1],
             chromosome.genes[2],
@@ -115,7 +115,7 @@ struct Windows {
 struct Model<R: rand::RngCore> {
     e0: EllipseState,
     e1: EllipseState,
-    common_tangents: Vec<(Line, TangentDirection)>,
+    common_tangents: Vec<(SimpleLine, TangentDirection)>,
     cursor_pos: Point2,
     sim: SimulationIter<f32, Range<f32>, FitnessSelector<TangentFitness>, R>,
     population: Vec<Chromosome<f32>>,
@@ -238,10 +238,10 @@ fn fill_image<R: rand::RngCore>(app: &App, model: &mut Model<R>) {
 
             //*array.at_mut(x, y) = model.e0.eq()(pt.x, pt.y);
 
-            *array.at_mut(x, y) = model.e0.ellipse.intersection_discriminant(Line {
+            *array.at_mut(x, y) = model.e0.ellipse.intersection_discriminant(SimpleLine {
                 k,
                 d: pt.y - k * pt.x,
-            }) * model.e1.ellipse.intersection_discriminant(Line {
+            }) * model.e1.ellipse.intersection_discriminant(SimpleLine {
                 k,
                 d: pt.y - k * pt.x,
             })
@@ -347,7 +347,7 @@ fn draw_line_by_kd(draw: &Draw, k: f32, d: f32) -> Drawing<primitive::Line> {
     draw.line().points(pt2(x0, y0), pt2(x1, y1))
 }
 
-fn draw_line(draw: &Draw, line: Line) -> Drawing<primitive::Line> {
+fn draw_line(draw: &Draw, line: SimpleLine) -> Drawing<primitive::Line> {
     draw_line_by_kd(draw, line.k, line.d)
 }
 

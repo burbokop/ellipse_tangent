@@ -1,6 +1,6 @@
 use ellipse_tangent::{
     ellipse::TangentDirection,
-    line::Line,
+    line::SimpleLine,
     utils::{deg_to_rad, mul_arr, mul_tuple2},
 };
 use nannou::{
@@ -76,7 +76,7 @@ fn draw_plot<C, const N: usize>(
     colors: [C; N],
     magnification: (f32, f32),
     current_k: f32,
-    common_tangents: &[(Line, TangentDirection)],
+    common_tangents: &[(SimpleLine, TangentDirection)],
 ) where
     C: IntoLinSrgba<ColorScalar> + Clone,
 {

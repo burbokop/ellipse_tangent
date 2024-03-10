@@ -2,7 +2,7 @@ use num_traits::Pow;
 use rustnomial::Polynomial;
 
 use crate::{
-    line::Line,
+    line::{Line, SimpleLine},
     utils::{deg_to_rad, deg_to_rot, notmalize_array_around_one, SignedSqr as _, SignedSqrt as _},
 };
 
@@ -127,7 +127,7 @@ impl Ellipse {
     ///
     /// (r * (x - x_0) - i * (k * x + d - y_0))^2 / a^2 + (r * (k * x + d - y_0) + i * (x - x_0))^2 / b^2 - 1
     /// (r * (x - x_0) - e * (k * x + d - y_0))^2 / a^2 + (r * (k * x + d - y_0) + e * (x - x_0))^2 / b^2 - 1
-    pub(crate) fn intersection_line_eq(&self, line: Line) -> impl FnOnce(f32) -> f32 {
+    pub(crate) fn intersection_line_eq(&self, line: SimpleLine) -> impl FnOnce(f32) -> f32 {
         let x_0 = self.x;
         let y_0 = self.y;
         let a = self.a;
@@ -147,7 +147,7 @@ impl Ellipse {
     /// -(4 * (a^2 * (-k^2 * r^2 - 2 * i * k * r - i^2) + b^2 * (-i^2 * k^2 + 2 * i * k * r - r^2) + (r^4 + 2 * i^2 * r^2 + i^4) * (d^2 + 2 * d * (k * x_0 - y_0) + k^2 * x_0^2 - 2 * k * x_0 * y_0 + y_0^2))) / (a^2 * b^2)
     /// -(4 * (a_0^2 * (-k^2 * r_0^2 - 2 * i_0 * k * r_0 - i_0^2) + b_0^2 * (-i_0^2 * k^2 + 2 * i_0 * k * r_0 - r_0^2) + (r_0^4 + 2 * i_0^2 * r_0^2 + i_0^4) * (d^2 + 2 * d * (k * x_0 - y_0) + k^2 * x_0^2 - 2 * k * x_0 * y_0 + y_0^2))) / (a_0^2 * b_0^2)
     /// -(4 * (a_1^2 * (-k^2 * r_1^2 - 2 * i_1 * k * r_1 - i_1^2) + b_1^2 * (-i_1^2 * k^2 + 2 * i_1 * k * r_1 - r_1^2) + (r_1^4 + 2 * i_1^2 * r_1^2 + i_1^4) * (d^2 + 2 * d * (k * x_1 - y_1) + k^2 * x_1^2 - 2 * k * x_1 * y_1 + y_1^2))) / (a_1^2 * b_1^2)
-    pub fn intersection_discriminant(&self, line: Line) -> f32 {
+    pub fn intersection_discriminant(&self, line: SimpleLine) -> f32 {
         let x_0 = self.x;
         let y_0 = self.y;
         let a = self.a;
@@ -376,7 +376,7 @@ impl Ellipse {
         }
     }
 
-    pub fn common_tangents2(&self, rhs: &Ellipse, acc: f32) -> Vec<(Line, TangentDirection)> {
+    pub fn common_tangents2(&self, rhs: &Ellipse, acc: f32) -> Vec<(SimpleLine, TangentDirection)> {
         let mut left_limit = 0_f32;
         let mut right_limit = 360_f32;
 
@@ -405,15 +405,15 @@ impl Ellipse {
             if a.abs().min(b.abs()) < acc {
                 let d = self.tangent_d(min_k);
                 return vec![
-                    (Line { k: min_k, d: d.0 }, TangentDirection::Left),
-                    (Line { k: min_k, d: d.1 }, TangentDirection::Right)
+                    (SimpleLine { k: min_k, d: d.0 }, TangentDirection::Left),
+                    (SimpleLine { k: min_k, d: d.1 }, TangentDirection::Right)
                 ]
             }
         }
         vec![]
     }
 
-    pub fn common_tangents3(&self, rhs: &Ellipse) -> Vec<(Line, TangentDirection)> {
+    pub fn common_tangents3(&self, rhs: &Ellipse) -> Vec<(SimpleLine, TangentDirection)> {
         #[derive(Debug)]
         enum SdfNum {
             _0,
@@ -428,11 +428,11 @@ impl Ellipse {
         }
 
         impl PotentialLine {
-            fn as_line(&self, rhs: &Ellipse) -> Line {
+            fn as_line(&self, rhs: &Ellipse) -> SimpleLine {
                 let (d_0, d_1) = rhs.tangent_d(self.k);
                 match self.id {
-                    SdfNum::_0 => Line { k: self.k, d: d_0 },
-                    SdfNum::_1 => Line { k: self.k, d: d_1 },
+                    SdfNum::_0 => SimpleLine { k: self.k, d: d_0 },
+                    SdfNum::_1 => SimpleLine { k: self.k, d: d_1 },
                 }
             }
         }
@@ -459,14 +459,14 @@ impl Ellipse {
 
         //println!("potential_lines: {:?}", potential_lines.iter().map(|x|x.fitness).collect::<Vec<_>>());
 
-        let best_lines = &potential_lines[..4];
+        let best_lines = &potential_lines[..64];
         println!("best_lines: {:?}", best_lines);
 
         best_lines.iter().map(|x| (x.as_line(rhs), TangentDirection::Left)).collect()
 
     }
 
-    pub fn common_tangents(&self, rhs: &Ellipse) -> Vec<(Line, TangentDirection)> {
+    pub fn common_tangents(&self, rhs: &Ellipse) -> Vec<(SimpleLine, TangentDirection)> {
         let id = self.common_tangents_intermediate_data(rhs);
 
         fn pp<'a>(
@@ -476,7 +476,7 @@ impl Ellipse {
             w: f32,
             l: f32,
             roots: &'a [f32],
-        ) -> impl Iterator<Item = (Line, TangentDirection)> + 'a {
+        ) -> impl Iterator<Item = (SimpleLine, TangentDirection)> + 'a {
             //println!("roots: {:?}", roots);
             if roots.is_empty() {
                 //println!("x")
@@ -493,10 +493,10 @@ impl Ellipse {
                     let mut vec = Vec::new();
 
                     if (d_0.0 - d_1.0).abs() < err || (d_0.0 - d_1.1).abs() < err {
-                        vec.push((Line { k: *k, d: d_0.0 }, TangentDirection::Left));
+                        vec.push((SimpleLine { k: *k, d: d_0.0 }, TangentDirection::Left));
                     }
                     if (d_0.1 - d_1.0).abs() < err || (d_0.1 - d_1.1).abs() < err {
-                        vec.push((Line { k: *k, d: d_0.1 }, TangentDirection::Right));
+                        vec.push((SimpleLine { k: *k, d: d_0.1 }, TangentDirection::Right));
                     }
                     vec
                 })
