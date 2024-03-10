@@ -6,7 +6,7 @@ mod plot;
 use chromosome::{Chromosome, Fitness, FitnessSelector, SimulationIter};
 use ellipse_tangent::{
     ellipse::{Ellipse, TangentDirection},
-    line::Line,
+    line::{Line, SimpleLine},
     utils::deg_to_rot,
 };
 use nannou::{
@@ -36,7 +36,7 @@ impl Fitness for TangentFitness {
     type Value = f32;
 
     fn fitness(&self, chromosome: &Chromosome<Self::Value>) -> Self::Value {
-        let line = Line {
+        let line = SimpleLine {
             k: chromosome.genes[0].tan(),
             d: chromosome.genes[1],
         };
@@ -54,7 +54,7 @@ impl Fitness for TangentSegmentFitness {
     type Value = f32;
 
     fn fitness(&self, chromosome: &Chromosome<Self::Value>) -> Self::Value {
-        match Line::from_points(
+        match SimpleLine::from_points(
             chromosome.genes[0],
             chromosome.genes[1],
             chromosome.genes[2],
@@ -115,7 +115,7 @@ struct Windows {
 struct Model<R: rand::RngCore> {
     e0: EllipseState,
     e1: EllipseState,
-    common_tangents: Vec<(Line, TangentDirection)>,
+    common_tangents: Vec<(SimpleLine, TangentDirection)>,
     cursor_pos: Point2,
     sim: SimulationIter<f32, Range<f32>, FitnessSelector<TangentFitness>, R>,
     population: Vec<Chromosome<f32>>,
@@ -238,10 +238,10 @@ fn fill_image<R: rand::RngCore>(app: &App, model: &mut Model<R>) {
 
             //*array.at_mut(x, y) = model.e0.eq()(pt.x, pt.y);
 
-            *array.at_mut(x, y) = model.e0.ellipse.intersection_discriminant(Line {
+            *array.at_mut(x, y) = model.e0.ellipse.intersection_discriminant(SimpleLine {
                 k,
                 d: pt.y - k * pt.x,
-            }) * model.e1.ellipse.intersection_discriminant(Line {
+            }) * model.e1.ellipse.intersection_discriminant(SimpleLine {
                 k,
                 d: pt.y - k * pt.x,
             })
@@ -290,6 +290,8 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
         //println!("nothing to do");
     }
 
+    let mut acc = 0_f32;
+
     {
         let egui = &mut model.egui;
         let settings = &mut model.settings;
@@ -307,11 +309,16 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
             ui.add(egui::Slider::new(&mut settings.scale, 0.1..=10000.));
             ui.label("θ:");
             ui.add(egui::Slider::new(theta, (0.)..=360.).step_by(1.));
+            ui.label("acc:");
+            ui.add(egui::Slider::new(&mut acc, (0.01)..=1.).step_by(0.01));
 
             let k = deg_to_rad(*theta).tan();
             ui.label(format!("K: {}", k));
 
-            let outer = model.e0.ellipse.outer_tangents_fun(&model.e1.ellipse, k);
+            ui.label(format!("ell_0.D: {:?}", model.e0.ellipse.tangent_d(k)));
+            ui.label(format!("ell_1.D: {:?}", model.e1.ellipse.tangent_d(k)));
+
+            let outer = model.e0.ellipse.outer_tangents_sdf(&model.e1.ellipse, k);
             ui.label(format!("result: {:?}", outer));
 
             let i_d = model
@@ -322,7 +329,7 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
         });
     }
 
-    model.common_tangents = model.e0.ellipse.common_tangents(&model.e1.ellipse);
+    model.common_tangents = model.e0.ellipse.common_tangents3(&model.e1.ellipse);
 
     fill_image(app, model);
 }
@@ -340,7 +347,7 @@ fn draw_line_by_kd(draw: &Draw, k: f32, d: f32) -> Drawing<primitive::Line> {
     draw.line().points(pt2(x0, y0), pt2(x1, y1))
 }
 
-fn draw_line(draw: &Draw, line: Line) -> Drawing<primitive::Line> {
+fn draw_line(draw: &Draw, line: SimpleLine) -> Drawing<primitive::Line> {
     draw_line_by_kd(draw, line.k, line.d)
 }
 
@@ -501,6 +508,42 @@ fn view<R: rand::RngCore>(app: &App, model: &Model<R>, frame: Frame) {
             TangentDirection::Left => BLACK,
             TangentDirection::Right => WHITE,
         });
+    }
+
+    {
+        let mut prev_x = 0.;
+        let mut prev_y = [0.; 2];
+        let mut has_prev: bool = false;
+        for i in -400..400 {
+            let x = i as f32;
+            let y = model.e0.ellipse.y(x);
+
+            if has_prev {
+                //println!("{}, {:?} -> {}, {:?}", prev_x, prev_y, x, y);
+                if !y[0].is_nan() && !prev_y[0].is_nan() {
+                    draw.line()
+                    .points(
+                        pt2(prev_x, prev_y[0]),
+                        pt2(x, y[0]),
+                    )
+                    .stroke_weight(3.)
+                    .color(YELLOW);
+                }
+                if !y[1].is_nan() && !prev_y[1].is_nan() {
+                    draw.line()
+                    .points(
+                        pt2(prev_x, prev_y[1]),
+                        pt2(x, y[1]),
+                    )
+                    .stroke_weight(3.)
+                    .color(GREEN);
+                }
+            }
+
+            has_prev = true;
+            prev_x = x;
+            prev_y = y;
+        }
     }
 
     draw.to_frame(app, &frame).unwrap();

@@ -1,12 +1,12 @@
 use ellipse_tangent::{
     ellipse::TangentDirection,
-    line::Line,
-    utils::{deg_to_rad, mul_tuple2},
+    line::SimpleLine,
+    utils::{deg_to_rad, mul_arr, mul_tuple2},
 };
 use nannou::{
     color::{
-        IntoLinSrgba, Srgb, BLACK, BLUE, DARKSLATEGREY, LIGHTBLUE, LIGHTPINK, RED, VIOLET, WHITE,
-        YELLOW,
+        IntoLinSrgba, Srgb, BLACK, BLUE, DARKSLATEGREY, GRAY, GREEN, LIGHTBLUE, LIGHTGRAY,
+        LIGHTGREEN, LIGHTPINK, RED, VIOLET, WHITE, YELLOW,
     },
     draw::properties::ColorScalar,
     event::{ElementState, MouseButton},
@@ -70,32 +70,33 @@ fn raw_window_event<R: rand::RngCore>(
     }
 }
 
-fn draw_plot<C>(
+fn draw_plot<C, const N: usize>(
     draw: &Draw,
-    fun: impl Fn(f32) -> (f32, f32),
-    colors: [C; 2],
+    fun: impl Fn(f32) -> [f32; N],
+    colors: [C; N],
     magnification: (f32, f32),
     current_k: f32,
-    common_tangents: &[(Line, TangentDirection)],
+    common_tangents: &[(SimpleLine, TangentDirection)],
 ) where
     C: IntoLinSrgba<ColorScalar> + Clone,
 {
     let mut prev_k = 0.;
-    let mut prev = (0., 0.);
+    let mut prev = [0.; N];
     let mut has_prev: bool = false;
     for i in -500..500 {
         let k = i as f32 / magnification.0;
         let x = i as f32;
         let v = fun(k);
-        let v = (v.0 * magnification.1, v.1 * magnification.1);
 
         if has_prev {
-            draw.line()
-                .points(pt2(prev_k, prev.0), pt2(x, v.0))
-                .color(colors[0].clone());
-            draw.line()
-                .points(pt2(prev_k, prev.1), pt2(x, v.1))
-                .color(colors[1].clone());
+            for ((v, prev), color) in v.into_iter().zip(prev).zip(colors.clone()) {
+                draw.line()
+                    .points(
+                        pt2(prev_k, prev * magnification.1),
+                        pt2(x, v * magnification.1),
+                    )
+                    .color(color);
+            }
         }
 
         prev_k = x;
@@ -106,7 +107,7 @@ fn draw_plot<C>(
     for t in common_tangents {
         let v = fun(t.0.k);
         let x = t.0.k * magnification.0;
-        let y = (v.0 * magnification.1, v.1 * magnification.1);
+        let y = (0., 0.);
 
         let color = match t.1 {
             TangentDirection::Left => BLACK,
@@ -133,18 +134,14 @@ fn draw_plot<C>(
     {
         let current_v = fun(current_k);
         let current_x = current_k * magnification.0;
-        let current_y = (current_v.0 * magnification.1, current_v.1 * magnification.1);
-        draw.ellipse()
-            .radius(3.)
-            .x(current_x)
-            .y(current_y.0)
-            .color(colors[0].clone());
-
-        draw.ellipse()
-            .radius(3.)
-            .x(current_x)
-            .y(current_y.1)
-            .color(colors[1].clone());
+        for (current_v, color) in current_v.into_iter().zip(colors) {
+            let current_y = current_v * magnification.1;
+            draw.ellipse()
+                .radius(3.)
+                .x(current_x)
+                .y(current_y)
+                .color(color);
+        }
     }
 }
 
@@ -155,27 +152,37 @@ fn view<R: rand::RngCore>(app: &App, model: &Model<R>, frame: Frame) {
 
     let k = deg_to_rad(model.settings.theta).tan();
 
+    // draw_plot(
+    //     &draw,
+    //     |k| {
+    //         mul_arr(
+    //             model.e0.ellipse.outer_tangents_sdf(&model.e1.ellipse, k),
+    //             [2., 2.],
+    //         )
+    //     },
+    //     [RED, LIGHTPINK],
+    //     model.plot_magnification,
+    //     k,
+    //     &model.common_tangents,
+    // );
+
     draw_plot(
         &draw,
-        |k| {
-            mul_tuple2(
-                model.e0.ellipse.outer_tangents_fun(&model.e1.ellipse, k),
-                (2., 2.),
-            )
-        },
-        [RED, LIGHTPINK],
+        |k| model.e0.ellipse.xx_outer_tangents_sdf(&model.e1.ellipse, k),
+        [GREEN, LIGHTGREEN],
         model.plot_magnification,
         k,
         &model.common_tangents,
     );
-    draw_plot(
-        &draw,
-        |k| model.e0.ellipse.tangent_k_alg(&model.e1.ellipse, k),
-        [BLUE, LIGHTBLUE],
-        model.plot_magnification,
-        k,
-        &model.common_tangents,
-    );
+
+    // draw_plot(
+    //     &draw,
+    //     |k| model.e0.ellipse.tangent_k_alg(&model.e1.ellipse, k),
+    //     [BLUE, LIGHTBLUE],
+    //     model.plot_magnification,
+    //     k,
+    //     &model.common_tangents,
+    // );
 
     draw.line()
         .points(pt2(rect.x.start, 0.), pt2(rect.x.end, 0.))

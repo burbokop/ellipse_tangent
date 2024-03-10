@@ -1,7 +1,10 @@
-use num_traits::Pow as _;
+use num_traits::Pow;
 use rustnomial::Polynomial;
 
-use crate::{line::Line, utils::{notmalize_array_around_one, SignedSqr as _, SignedSqrt as _}};
+use crate::{
+    line::{Line, SimpleLine},
+    utils::{deg_to_rad, deg_to_rot, notmalize_array_around_one, SignedSqr as _, SignedSqrt as _},
+};
 
 #[derive(Debug, Clone)]
 pub struct Ellipse {
@@ -41,11 +44,7 @@ pub struct CommonTangentsIntermediateData {
     j: f32,
     w: f32,
     l: f32,
-    o: f32,
-    p: f32,
-    v: f32,
-    u: f32,
-    m: f32,
+    p: [f32; 4],
 }
 
 impl Ellipse {
@@ -72,10 +71,55 @@ impl Ellipse {
         let r = self.r;
         let i = self.i;
         move |x, y| {
-            (r * (x - x_0) - i * (y - y_0)).pow(2.) / a.pow(2.)
-                + (r * (y - y_0) + i * (x - x_0)).pow(2.) / b.pow(2.)
+            (r * (x - x_0) - i * (y - y_0)).pow(2.)
+                / a.pow(2.)
+          + (r * (y - y_0) + i * (x - x_0)).pow(2.)
+                / b.pow(2.)
                 - 1.
         }
+    }
+
+    pub fn y(&self, x: f32) -> [f32; 2] {
+        let x_0 = self.x;
+        let y_0 = self.y;
+        let a = self.a;
+        let b = self.b;
+        let r = self.r;
+        let i = self.i;
+
+        let j = (i * b).pow(2.) + (r * a).pow(2.);
+        let k = 2. * r * i * (x - x_0) * (a.pow(2.) - b.pow(2.));
+        let l = (r * b * (x - x_0)).pow(2.) + (i * a * (x - x_0)).pow(2.) - (a * b).pow(2.);
+
+        let desc_sqrt = 2. * a * b * (a.pow(2.) * r.pow(2.) + b.pow(2.) * i.pow(2.) - (x - x_0).pow(2.)).sqrt()
+
+
+            ;
+
+        [
+            ((-k + desc_sqrt) / (2. * j)) + y_0,
+            ((-k - desc_sqrt) / (2. * j)) + y_0,
+        ]
+    }
+
+    pub fn y_derivative(&self, x: f32) -> [f32; 2] {
+        let x_0 = self.x;
+        let y_0 = self.y;
+        let a = self.a;
+        let b = self.b;
+        let r = self.r;
+        let i = self.i;
+
+        let j = (i * b).pow(2.) + (r * a).pow(2.);
+        let k = 2. * r * i * (x - x_0) * (a.pow(2.) - b.pow(2.));
+        let l = (r * b * (x - x_0)).pow(2.) + (i * a * (x - x_0)).pow(2.) - (a * b).pow(2.);
+
+        let desc = k.pow(2.) - 4. * j * l;
+
+        [
+            ((-k + desc.sqrt()) / (2. * j)) + y_0,
+            ((-k - desc.sqrt()) / (2. * j)) + y_0,
+        ]
     }
 
     /// (r*(x - x_0) - i*(y - y_0))^2 / a^2 + (r*(y - y_0) + i*(x - x_0))^2 / b^2 - 1
@@ -83,7 +127,7 @@ impl Ellipse {
     ///
     /// (r * (x - x_0) - i * (k * x + d - y_0))^2 / a^2 + (r * (k * x + d - y_0) + i * (x - x_0))^2 / b^2 - 1
     /// (r * (x - x_0) - e * (k * x + d - y_0))^2 / a^2 + (r * (k * x + d - y_0) + e * (x - x_0))^2 / b^2 - 1
-    pub(crate) fn intersection_line_eq(&self, line: Line) -> impl FnOnce(f32) -> f32 {
+    pub(crate) fn intersection_line_eq(&self, line: SimpleLine) -> impl FnOnce(f32) -> f32 {
         let x_0 = self.x;
         let y_0 = self.y;
         let a = self.a;
@@ -103,7 +147,7 @@ impl Ellipse {
     /// -(4 * (a^2 * (-k^2 * r^2 - 2 * i * k * r - i^2) + b^2 * (-i^2 * k^2 + 2 * i * k * r - r^2) + (r^4 + 2 * i^2 * r^2 + i^4) * (d^2 + 2 * d * (k * x_0 - y_0) + k^2 * x_0^2 - 2 * k * x_0 * y_0 + y_0^2))) / (a^2 * b^2)
     /// -(4 * (a_0^2 * (-k^2 * r_0^2 - 2 * i_0 * k * r_0 - i_0^2) + b_0^2 * (-i_0^2 * k^2 + 2 * i_0 * k * r_0 - r_0^2) + (r_0^4 + 2 * i_0^2 * r_0^2 + i_0^4) * (d^2 + 2 * d * (k * x_0 - y_0) + k^2 * x_0^2 - 2 * k * x_0 * y_0 + y_0^2))) / (a_0^2 * b_0^2)
     /// -(4 * (a_1^2 * (-k^2 * r_1^2 - 2 * i_1 * k * r_1 - i_1^2) + b_1^2 * (-i_1^2 * k^2 + 2 * i_1 * k * r_1 - r_1^2) + (r_1^4 + 2 * i_1^2 * r_1^2 + i_1^4) * (d^2 + 2 * d * (k * x_1 - y_1) + k^2 * x_1^2 - 2 * k * x_1 * y_1 + y_1^2))) / (a_1^2 * b_1^2)
-    pub fn intersection_discriminant(&self, line: Line) -> f32 {
+    pub fn intersection_discriminant(&self, line: SimpleLine) -> f32 {
         let x_0 = self.x;
         let y_0 = self.y;
         let a = self.a;
@@ -113,10 +157,14 @@ impl Ellipse {
         let k = line.k;
         let d = line.d;
 
-        4. * ((a * (r * k + i)).pow(2.) + (b * (i * k - r)).pow(2.) - (d + k * x_0).pow(2.)
+        4. * (
+            (a * (r * k + i)).pow(2.)
+            + (b * (i * k - r)).pow(2.)
+            - (d + k * x_0).pow(2.)
             + 2. * d * y_0
             + 2. * k * x_0 * y_0
-            - y_0.pow(2.))
+            - y_0.pow(2.)
+        )
             / (a * b).pow(2.)
     }
 
@@ -129,14 +177,110 @@ impl Ellipse {
         let r = self.r;
         let i = self.i;
 
+
+
+        //let x
+//
+        //= d.pow(2.)
+        //+ d * 2. * (k * x_0 - y_0)
+        //+ (a * (r * k + i)).pow(2.)
+        //- (b * (i * k - r)).pow(2.)
+        //+ (k * x_0).pow(2.)
+        //- 2. * k * x_0 * y_0
+        //+ y_0.pow(2.)
+        //== 0.;
+//
+        //a = 1;
+        //b = 2. * (k * x_0 - y_0);
+        //c = (a * (r * k + i)).pow(2.) - (b * (i * k - r)).pow(2.) + (k * x_0).pow(2.) - 2. * k * x_0 * y_0 + y_0.pow(2.);
+
+        // let ddd
+        //     = 4. * (k * x_0 - y_0).pow(2.)
+        //     - 4. * (a * (r * k + i)).pow(2.)
+        //     + 4. * (b * (i * k - r)).pow(2.)
+        //     - 4. * (k * x_0).pow(2.)
+        //     + 4. * 2. * k * x_0 * y_0 + y_0.pow(2.)
+        // ;
+
         let discriminant = (a * (r * k + i)).pow(2.) + (b * (i * k - r)).pow(2.);
         let base = -k * x_0 + y_0;
 
         (base + discriminant.sqrt(), base - discriminant.sqrt())
     }
 
+    pub fn x_outer_tangents_sdf(&self, rhs: &Ellipse, k: f32) -> [f32; 4] {
+        let x_0 = self.x;
+        let y_0 = self.y;
+        let a_0 = self.a;
+        let b_0 = self.b;
+        let r_0 = self.r;
+        let i_0 = self.i;
+
+        let x_1 = rhs.x;
+        let y_1 = rhs.y;
+        let a_1 = rhs.a;
+        let b_1 = rhs.b;
+        let r_1 = rhs.r;
+        let i_1 = rhs.i;
+
+        let discriminant_0 = (a_0 * (r_0 * k + i_0)).pow(2.) + (b_0 * (i_0 * k - r_0)).pow(2.);
+        let base_0 = -k * x_0 + y_0;
+
+        let discriminant_1 = (a_1 * (r_1 * k + i_1)).pow(2.) + (b_1 * (i_1 * k - r_1)).pow(2.);
+        let base_1 = -k * x_1 + y_1;
+
+        let f_0 = base_1 - base_0 + discriminant_1.sqrt() - discriminant_0.sqrt(); //GREEN      outer
+        let f_1 = base_1 - base_0 - discriminant_1.sqrt() - discriminant_0.sqrt(); //LIGHTGREEN internal
+        let f_2 = base_1 - base_0 + discriminant_1.sqrt() + discriminant_0.sqrt(); //GRAY       internal
+        let f_3 = base_1 - base_0 - discriminant_1.sqrt() + discriminant_0.sqrt(); //LIGHTGRAY  outer
+
+        [f_0, f_1, f_2, f_3]
+    }
+
+    pub fn xx_outer_tangents_sdf(&self, rhs: &Ellipse, k: f32) -> [f32; 2] {
+        let x_0 = self.x;
+        let y_0 = self.y;
+        let a_0 = self.a;
+        let b_0 = self.b;
+        let r_0 = self.r;
+        let i_0 = self.i;
+
+        let x_1 = rhs.x;
+        let y_1 = rhs.y;
+        let a_1 = rhs.a;
+        let b_1 = rhs.b;
+        let r_1 = rhs.r;
+        let i_1 = rhs.i;
+
+        let discriminant_0 = (a_0 * (r_0 * k + i_0)).pow(2.) + (b_0 * (i_0 * k - r_0)).pow(2.);
+        let discriminant_1 = (a_1 * (r_1 * k + i_1)).pow(2.) + (b_1 * (i_1 * k - r_1)).pow(2.);
+
+        (k * (a_1 * r_1 + b_1 * i_1) + a_1 * i_1 - b_1 * r_1).pow(2.) - 2. * a_1 * b_1 * (k.pow(2.) * r_1 * i_1 + k * (i_1.pow(2.) - r_1.pow(2.)) - r_1 * i_1);
+
+        //sin^2 - cos^2;
+
+        let dx = x_1 - x_0;
+        let dy = y_1 - y_0;
+
+        let eq = |left: f32, right: f32| left - right;
+
+        let f_0 = eq(discriminant_1.sqrt() - discriminant_0.sqrt(), k * dx - dy);    //GREEN      outer
+        let f_3 = eq(-(k * dx - dy), discriminant_1.sqrt() - discriminant_0.sqrt()); //LIGHTGRAY  outer
+
+
+
+        // x = y;
+
+        // x^2 = y^2; if x>=0,y>=0;
+        // x^2 = y^2; if x<0,y>=0;
+        // x^2 = y^2; if x>=0,y<0;
+        // x^2 = y^2; if x<0,y<0;
+
+        [f_0, f_3]
+    }
+
     /// intersection of this function with y = 0 is where common outer tangents are
-    pub fn outer_tangents_fun(&self, rhs: &Ellipse, k: f32) -> (f32, f32) {
+    pub fn outer_tangents_sdf(&self, rhs: &Ellipse, k: f32) -> [f32; 2] {
         let x_0 = self.x;
         let y_0 = self.y;
         let a_0 = self.a;
@@ -157,7 +301,7 @@ impl Ellipse {
         let lhs = k * (x_1 - x_0) + y_0 - y_1;
         let rhs = discriminant_1.sqrt() - discriminant_0.sqrt();
 
-        (lhs - rhs, lhs + rhs)
+        [lhs - rhs, lhs + rhs]
     }
 
     pub fn common_tangents_intermediate_data(
@@ -191,6 +335,7 @@ impl Ellipse {
         let dx = (x_1 - x_0).ssqr() / c;
         let dy = (y_1 - y_0).ssqr() / c;
 
+
         // println!(
         //     "before: {}, {}, {}, {}, {}, {}, {}, {}",
         //     f_0, g_0, h_0, f_1, g_1, h_1, dx, dy
@@ -215,6 +360,8 @@ impl Ellipse {
         let u = 2. * w * l - 4. * g_1 * h_0 - 4. * h_1 * g_0;
         let m = l.pow(2.) - 4. * h_1 * h_0;
 
+        //ox^4 + px^3 + vx^2 + ux + m = 0;
+
         CommonTangentsIntermediateData {
             f_0,
             g_0,
@@ -225,15 +372,101 @@ impl Ellipse {
             j,
             w,
             l,
-            o,
-            p,
-            v,
-            u,
-            m,
+            p: [p / o, v / o, u / o, m / o],
         }
     }
 
-    pub fn common_tangents(&self, rhs: &Ellipse) -> Vec<(Line, TangentDirection)> {
+    pub fn common_tangents2(&self, rhs: &Ellipse, acc: f32) -> Vec<(SimpleLine, TangentDirection)> {
+        let mut left_limit = 0_f32;
+        let mut right_limit = 360_f32;
+
+        for _ in 0..100 {
+            let delta = (left_limit - right_limit).abs() / 4.;
+            let center = (left_limit + right_limit) / 2.;
+
+            let k_a = deg_to_rad(center - delta).tan();
+            let k_b = deg_to_rad(center + delta).tan();
+
+            let a = self.outer_tangents_sdf(rhs, k_a)[0];
+            let b = self.outer_tangents_sdf(rhs, k_b)[0];
+
+            let min_k;
+
+            if a.abs() < b.abs() {
+                min_k = k_a;
+                //left_limit = left_limit;
+                right_limit = center;
+            } else {
+                min_k = k_b;
+                left_limit = center;
+                //right_limit = right_limit;
+            }
+
+            if a.abs().min(b.abs()) < acc {
+                let d = self.tangent_d(min_k);
+                return vec![
+                    (SimpleLine { k: min_k, d: d.0 }, TangentDirection::Left),
+                    (SimpleLine { k: min_k, d: d.1 }, TangentDirection::Right)
+                ]
+            }
+        }
+        vec![]
+    }
+
+    pub fn common_tangents3(&self, rhs: &Ellipse) -> Vec<(SimpleLine, TangentDirection)> {
+        #[derive(Debug)]
+        enum SdfNum {
+            _0,
+            _1
+        }
+
+        #[derive(Debug)]
+        struct PotentialLine {
+            pub k: f32,
+            pub fitness: f32,
+            pub id: SdfNum,
+        }
+
+        impl PotentialLine {
+            fn as_line(&self, rhs: &Ellipse) -> SimpleLine {
+                let (d_0, d_1) = rhs.tangent_d(self.k);
+                match self.id {
+                    SdfNum::_0 => SimpleLine { k: self.k, d: d_0 },
+                    SdfNum::_1 => SimpleLine { k: self.k, d: d_1 },
+                }
+            }
+        }
+
+        let mut potential_lines: Vec<_> = (0..360_u16).flat_map(|theta| {
+            let k = deg_to_rad(theta as f32).tan();
+            let fitness = self.outer_tangents_sdf(rhs, k);
+
+            [
+                PotentialLine {
+                    k,
+                    fitness: fitness[0].abs(),
+                    id: SdfNum::_0,
+                },
+            PotentialLine {
+                k,
+                fitness: fitness[1].abs(),
+                id: SdfNum::_1,
+            }
+            ]
+        }).collect();
+
+        potential_lines.sort_by(|a, b| a.fitness.partial_cmp(&b.fitness).unwrap());
+
+        //println!("potential_lines: {:?}", potential_lines.iter().map(|x|x.fitness).collect::<Vec<_>>());
+
+        let best_lines = &potential_lines[..64];
+        println!("best_lines: {:?}", best_lines);
+
+        best_lines.iter().map(|x| (x.as_line(rhs), TangentDirection::Left)).collect()
+
+    }
+
+    pub fn common_tangents(&self, rhs: &Ellipse) -> Vec<(SimpleLine, TangentDirection)> {
         let id = self.common_tangents_intermediate_data(rhs);
 
         fn pp<'a>(
@@ -243,12 +476,15 @@ impl Ellipse {
             w: f32,
             l: f32,
             roots: &'a [f32],
-        ) -> impl Iterator<Item = (Line, TangentDirection)> + 'a {
+        ) -> impl Iterator<Item = (SimpleLine, TangentDirection)> + 'a {
             //println!("roots: {:?}", roots);
+            if roots.is_empty() {
+                //println!("x")
+            }
             roots
                 .iter()
                 .filter(move |k| k.pow(2.) * j + *k * w + l >= 0.)
-                .map(|k| {
+                .flat_map(|k| {
                     let d_0 = e0.tangent_d(*k);
                     let d_1 = e1.tangent_d(*k);
 
@@ -257,37 +493,80 @@ impl Ellipse {
                     let mut vec = Vec::new();
 
                     if (d_0.0 - d_1.0).abs() < err || (d_0.0 - d_1.1).abs() < err {
-                        vec.push((Line { k: *k, d: d_0.0 }, TangentDirection::Left));
+                        vec.push((SimpleLine { k: *k, d: d_0.0 }, TangentDirection::Left));
                     }
                     if (d_0.1 - d_1.0).abs() < err || (d_0.1 - d_1.1).abs() < err {
-                        vec.push((Line { k: *k, d: d_0.1 }, TangentDirection::Right));
+                        vec.push((SimpleLine { k: *k, d: d_0.1 }, TangentDirection::Right));
                     }
                     vec
                 })
-                .flatten()
         }
 
         //println!("pol: {}, {}, {}, {}, {}", o, p, v, u, m);
         //let norm = notmalize_array([id.o, id.p, id.v, id.u, id.m]);
         //println!("norm: {:?}", norm);
 
-        let poly = Polynomial::<f64>::new(vec![id.o as f64, id.p as f64, id.v as f64, id.u as f64, id.m as f64]);
+        let poly = Polynomial::<f64>::new(vec![
+            1.,
+            id.p[0] as f64,
+            id.p[1] as f64,
+            id.p[2] as f64,
+            id.p[3] as f64,
+        ]);
 
         //println!("roots2: {:?}", );
+
+        //let r =  roots::find_roots_sturm(&id.p, &mut 1e-6);
+
+        //println!("r: {:?}", r);
 
         let res = match poly.roots() {
             rustnomial::Roots::NoRoots => pp(self, rhs, id.j, id.w, id.l, &[]).collect(),
             rustnomial::Roots::NoRootsFound => pp(self, rhs, id.j, id.w, id.l, &[]).collect(),
-            rustnomial::Roots::OneRealRoot(root) => pp(self, rhs, id.j, id.w, id.l, &[root as f32]).collect(),
-            rustnomial::Roots::TwoRealRoots(r0, r1) => pp(self, rhs, id.j, id.w, id.l, &[r0 as f32, r1 as f32]).collect(),
-            rustnomial::Roots::ThreeRealRoots(r0, r1, r2) => pp(self, rhs, id.j, id.w, id.l, &[r0 as f32, r1 as f32, r2 as f32]).collect(),
-            rustnomial::Roots::ManyRealRoots(roots) => pp(self, rhs, id.j, id.w, id.l, &roots.iter().map(|x| *x as f32).collect::<Vec<_>>()).collect(),
+            rustnomial::Roots::OneRealRoot(root) => {
+                pp(self, rhs, id.j, id.w, id.l, &[root as f32]).collect()
+            }
+            rustnomial::Roots::TwoRealRoots(r0, r1) => {
+                pp(self, rhs, id.j, id.w, id.l, &[r0 as f32, r1 as f32]).collect()
+            }
+            rustnomial::Roots::ThreeRealRoots(r0, r1, r2) => pp(
+                self,
+                rhs,
+                id.j,
+                id.w,
+                id.l,
+                &[r0 as f32, r1 as f32, r2 as f32],
+            )
+            .collect(),
+            rustnomial::Roots::ManyRealRoots(roots) => pp(
+                self,
+                rhs,
+                id.j,
+                id.w,
+                id.l,
+                &roots.iter().map(|x| *x as f32).collect::<Vec<_>>(),
+            )
+            .collect(),
             rustnomial::Roots::OneComplexRoot(_) => pp(self, rhs, id.j, id.w, id.l, &[]).collect(),
-            rustnomial::Roots::TwoComplexRoots(_, _) => pp(self, rhs, id.j, id.w, id.l, &[]).collect(),
-            rustnomial::Roots::ThreeComplexRoots(_, _, _) => pp(self, rhs, id.j, id.w, id.l, &[]).collect(),
-            rustnomial::Roots::ManyComplexRoots(_) => pp(self, rhs, id.j, id.w, id.l, &[]).collect(),
+            rustnomial::Roots::TwoComplexRoots(_, _) => {
+                pp(self, rhs, id.j, id.w, id.l, &[]).collect()
+            }
+            rustnomial::Roots::ThreeComplexRoots(_, _, _) => {
+                pp(self, rhs, id.j, id.w, id.l, &[]).collect()
+            }
+            rustnomial::Roots::ManyComplexRoots(_) => {
+                pp(self, rhs, id.j, id.w, id.l, &[]).collect()
+            }
             rustnomial::Roots::InfiniteRoots => pp(self, rhs, id.j, id.w, id.l, &[]).collect(),
-            rustnomial::Roots::OnlyRealRoots(roots) => pp(self, rhs, id.j, id.w, id.l, &roots.iter().map(|x| *x as f32).collect::<Vec<_>>()).collect(),
+            rustnomial::Roots::OnlyRealRoots(roots) => pp(
+                self,
+                rhs,
+                id.j,
+                id.w,
+                id.l,
+                &roots.iter().map(|x| *x as f32).collect::<Vec<_>>(),
+            )
+            .collect(),
         };
 
         // let res = match roots::find_roots_quartic(id.o, id.p, id.v, id.u, id.m) {
@@ -316,7 +595,7 @@ impl Ellipse {
         //(eq0 / 100., eq1 / 20000000.)
     }
 
-    pub fn tangent_k_alg(&self, rhs: &Ellipse, k: f32) -> (f32, f32) {
+    pub fn tangent_k_alg(&self, rhs: &Ellipse, k: f32) -> [f32; 2] {
         let x_0 = self.x;
         let y_0 = self.y;
         let a_0 = self.a;
@@ -331,7 +610,7 @@ impl Ellipse {
         let r_1 = rhs.r;
         let i_1 = rhs.i;
 
-        let eq = |left: f32, right: f32| (left - right).abs();
+        let eq = |left: f32, right: f32| left - right;
 
         let f_0 = (a_0 * r_0).pow(2.) + (b_0 * i_0).pow(2.);
         let g_0 = 2. * i_0 * r_0 * (a_0.pow(2.) - b_0.pow(2.));
@@ -417,16 +696,16 @@ impl Ellipse {
         //     discriminant_1.sqrt() - discriminant_0.sqrt(),
         // );
 
-        (eq0 / 100., eq1 / 20000000.)
+        [eq0 / 100., eq1 / 20000000.]
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::Ellipse;
+    use crate::utils::deg_to_rad;
     use num_traits::Pow as _;
     use roots::Roots;
-    use crate::utils::deg_to_rad;
-    use super::Ellipse;
 
     macro_rules! assert_eq_err {
         ($x: expr, $y: expr, $err: expr) => {

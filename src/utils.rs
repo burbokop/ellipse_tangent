@@ -1,5 +1,5 @@
-use std::ops::DivAssign;
 use num_traits::{real::Real, Pow as _};
+use std::ops::DivAssign;
 
 pub fn deg_to_rad(deg: f32) -> f32 {
     deg * std::f32::consts::PI / 180.
@@ -12,6 +12,10 @@ pub fn deg_to_rot(deg: f32) -> (f32, f32) {
 
 pub fn mul_tuple2(lhs: (f32, f32), rhs: (f32, f32)) -> (f32, f32) {
     (lhs.0 * rhs.0, lhs.1 * rhs.1)
+}
+
+pub fn mul_arr<const N: usize>(lhs: [f32; N], rhs: [f32; N]) -> [f32; N] {
+    lhs.into_iter().zip(rhs).map(|(l, r)| l * r).collect::<Vec<_>>().try_into().unwrap()
 }
 
 pub fn notmalize_array<T, const N: usize>(mut v: [T; N]) -> [T; N]
