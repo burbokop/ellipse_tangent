@@ -510,6 +510,42 @@ fn view<R: rand::RngCore>(app: &App, model: &Model<R>, frame: Frame) {
         });
     }
 
+    {
+        let mut prev_x = 0.;
+        let mut prev_y = [0.; 2];
+        let mut has_prev: bool = false;
+        for i in -400..400 {
+            let x = i as f32;
+            let y = model.e0.ellipse.y(x);
+
+            if has_prev {
+                //println!("{}, {:?} -> {}, {:?}", prev_x, prev_y, x, y);
+                if !y[0].is_nan() && !prev_y[0].is_nan() {
+                    draw.line()
+                    .points(
+                        pt2(prev_x, prev_y[0]),
+                        pt2(x, y[0]),
+                    )
+                    .stroke_weight(3.)
+                    .color(YELLOW);
+                }
+                if !y[1].is_nan() && !prev_y[1].is_nan() {
+                    draw.line()
+                    .points(
+                        pt2(prev_x, prev_y[1]),
+                        pt2(x, y[1]),
+                    )
+                    .stroke_weight(3.)
+                    .color(GREEN);
+                }
+            }
+
+            has_prev = true;
+            prev_x = x;
+            prev_y = y;
+        }
+    }
+
     draw.to_frame(app, &frame).unwrap();
     model.egui.draw_to_frame(&frame).unwrap();
 }

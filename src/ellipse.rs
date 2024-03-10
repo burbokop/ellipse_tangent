@@ -79,6 +79,49 @@ impl Ellipse {
         }
     }
 
+    pub fn y(&self, x: f32) -> [f32; 2] {
+        let x_0 = self.x;
+        let y_0 = self.y;
+        let a = self.a;
+        let b = self.b;
+        let r = self.r;
+        let i = self.i;
+
+        let j = (i * b).pow(2.) + (r * a).pow(2.);
+        let k = 2. * r * i * (x - x_0) * (a.pow(2.) - b.pow(2.));
+        let l = (r * b * (x - x_0)).pow(2.) + (i * a * (x - x_0)).pow(2.) - (a * b).pow(2.);
+
+        let desc_sqrt = 2. * a * b * (a.pow(2.) * r.pow(2.) + b.pow(2.) * i.pow(2.) - (x - x_0).pow(2.)).sqrt()
+
+
+            ;
+
+        [
+            ((-k + desc_sqrt) / (2. * j)) + y_0,
+            ((-k - desc_sqrt) / (2. * j)) + y_0,
+        ]
+    }
+
+    pub fn y_derivative(&self, x: f32) -> [f32; 2] {
+        let x_0 = self.x;
+        let y_0 = self.y;
+        let a = self.a;
+        let b = self.b;
+        let r = self.r;
+        let i = self.i;
+
+        let j = (i * b).pow(2.) + (r * a).pow(2.);
+        let k = 2. * r * i * (x - x_0) * (a.pow(2.) - b.pow(2.));
+        let l = (r * b * (x - x_0)).pow(2.) + (i * a * (x - x_0)).pow(2.) - (a * b).pow(2.);
+
+        let desc = k.pow(2.) - 4. * j * l;
+
+        [
+            ((-k + desc.sqrt()) / (2. * j)) + y_0,
+            ((-k - desc.sqrt()) / (2. * j)) + y_0,
+        ]
+    }
+
     /// (r*(x - x_0) - i*(y - y_0))^2 / a^2 + (r*(y - y_0) + i*(x - x_0))^2 / b^2 - 1
     /// y = k*x+d
     ///
@@ -165,7 +208,7 @@ impl Ellipse {
         (base + discriminant.sqrt(), base - discriminant.sqrt())
     }
 
-    pub fn xx_outer_tangents_sdf(&self, rhs: &Ellipse, k: f32) -> [f32; 4] {
+    pub fn x_outer_tangents_sdf(&self, rhs: &Ellipse, k: f32) -> [f32; 4] {
         let x_0 = self.x;
         let y_0 = self.y;
         let a_0 = self.a;
@@ -182,20 +225,58 @@ impl Ellipse {
 
         let discriminant_0 = (a_0 * (r_0 * k + i_0)).pow(2.) + (b_0 * (i_0 * k - r_0)).pow(2.);
         let base_0 = -k * x_0 + y_0;
-        let e_0_d_0 = base_0 + discriminant_0.sqrt();
-        let e_0_d_1 = base_0 - discriminant_0.sqrt();
 
         let discriminant_1 = (a_1 * (r_1 * k + i_1)).pow(2.) + (b_1 * (i_1 * k - r_1)).pow(2.);
         let base_1 = -k * x_1 + y_1;
-        let e_1_d_0 = base_1 + discriminant_1.sqrt();
-        let e_1_d_1 = base_1 - discriminant_1.sqrt();
 
-        let f_0 = e_1_d_0 - e_0_d_0;
-        let f_1 = e_1_d_1 - e_0_d_0;
-        let f_2 = e_1_d_0 - e_0_d_1;
-        let f_3 = e_1_d_1 - e_0_d_1;
+        let f_0 = base_1 - base_0 + discriminant_1.sqrt() - discriminant_0.sqrt(); //GREEN      outer
+        let f_1 = base_1 - base_0 - discriminant_1.sqrt() - discriminant_0.sqrt(); //LIGHTGREEN internal
+        let f_2 = base_1 - base_0 + discriminant_1.sqrt() + discriminant_0.sqrt(); //GRAY       internal
+        let f_3 = base_1 - base_0 - discriminant_1.sqrt() + discriminant_0.sqrt(); //LIGHTGRAY  outer
 
         [f_0, f_1, f_2, f_3]
+    }
+
+    pub fn xx_outer_tangents_sdf(&self, rhs: &Ellipse, k: f32) -> [f32; 2] {
+        let x_0 = self.x;
+        let y_0 = self.y;
+        let a_0 = self.a;
+        let b_0 = self.b;
+        let r_0 = self.r;
+        let i_0 = self.i;
+
+        let x_1 = rhs.x;
+        let y_1 = rhs.y;
+        let a_1 = rhs.a;
+        let b_1 = rhs.b;
+        let r_1 = rhs.r;
+        let i_1 = rhs.i;
+
+        let discriminant_0 = (a_0 * (r_0 * k + i_0)).pow(2.) + (b_0 * (i_0 * k - r_0)).pow(2.);
+        let discriminant_1 = (a_1 * (r_1 * k + i_1)).pow(2.) + (b_1 * (i_1 * k - r_1)).pow(2.);
+
+        (k * (a_1 * r_1 + b_1 * i_1) + a_1 * i_1 - b_1 * r_1).pow(2.) - 2. * a_1 * b_1 * (k.pow(2.) * r_1 * i_1 + k * (i_1.pow(2.) - r_1.pow(2.)) - r_1 * i_1);
+
+        //sin^2 - cos^2;
+
+        let dx = x_1 - x_0;
+        let dy = y_1 - y_0;
+
+        let eq = |left: f32, right: f32| left - right;
+
+        let f_0 = eq(discriminant_1.sqrt() - discriminant_0.sqrt(), k * dx - dy);    //GREEN      outer
+        let f_3 = eq(-(k * dx - dy), discriminant_1.sqrt() - discriminant_0.sqrt()); //LIGHTGRAY  outer
+
+
+
+        // x = y;
+
+        // x^2 = y^2; if x>=0,y>=0;
+        // x^2 = y^2; if x<0,y>=0;
+        // x^2 = y^2; if x>=0,y<0;
+        // x^2 = y^2; if x<0,y<0;
+
+        [f_0, f_3]
     }
 
     /// intersection of this function with y = 0 is where common outer tangents are
@@ -333,40 +414,56 @@ impl Ellipse {
     }
 
     pub fn common_tangents3(&self, rhs: &Ellipse) -> Vec<(Line, TangentDirection)> {
-        let mut min_res = (f32::MAX, f32::MAX);
-        let mut min_k = (f32::MAX, f32::MAX);
-        for theta in 0..360 {
-            let k = deg_to_rad(theta as f32).tan();
+        #[derive(Debug)]
+        enum SdfNum {
+            _0,
+            _1
+        }
 
-            let res = self.outer_tangents_sdf(rhs, k);
+        #[derive(Debug)]
+        struct PotentialLine {
+            pub k: f32,
+            pub fitness: f32,
+            pub id: SdfNum,
+        }
 
-            if res[0].abs() < min_res.0 {
-                min_res.0 = res[0].abs();
-                min_k.0 = k;
-            }
-
-            if res[1].abs() < min_res.1 {
-                min_res.1 = res[1].abs();
-                min_k.1 = k;
+        impl PotentialLine {
+            fn as_line(&self, rhs: &Ellipse) -> Line {
+                let (d_0, d_1) = rhs.tangent_d(self.k);
+                match self.id {
+                    SdfNum::_0 => Line { k: self.k, d: d_0 },
+                    SdfNum::_1 => Line { k: self.k, d: d_1 },
+                }
             }
         }
 
-        let d_0 = self.tangent_d(min_k.0);
-        let d_1 = self.tangent_d(min_k.1);
+        let mut potential_lines: Vec<_> = (0..360_u16).flat_map(|theta| {
+            let k = deg_to_rad(theta as f32).tan();
+            let fitness = self.outer_tangents_sdf(rhs, k);
 
-        vec![ (Line {
-            k: min_k.0,
-            d: d_0.0
-        }, TangentDirection::Left), (Line {
-            k: min_k.0,
-            d: d_0.1
-        }, TangentDirection::Left),(Line {
-            k: min_k.1,
-            d: d_1.0
-        }, TangentDirection::Left), (Line {
-            k: min_k.1,
-            d: d_1.1
-        }, TangentDirection::Left) ]
+            [
+                PotentialLine {
+                    k,
+                    fitness: fitness[0].abs(),
+                    id: SdfNum::_0,
+                },
+            PotentialLine {
+                k,
+                fitness: fitness[1].abs(),
+                id: SdfNum::_1,
+            }
+            ]
+        }).collect();
+
+        potential_lines.sort_by(|a, b| a.fitness.partial_cmp(&b.fitness).unwrap());
+
+        //println!("potential_lines: {:?}", potential_lines.iter().map(|x|x.fitness).collect::<Vec<_>>());
+
+        let best_lines = &potential_lines[..4];
+        println!("best_lines: {:?}", best_lines);
+
+        best_lines.iter().map(|x| (x.as_line(rhs), TangentDirection::Left)).collect()
+
     }
 
     pub fn common_tangents(&self, rhs: &Ellipse) -> Vec<(Line, TangentDirection)> {

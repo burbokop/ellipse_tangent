@@ -5,7 +5,8 @@ use ellipse_tangent::{
 };
 use nannou::{
     color::{
-        IntoLinSrgba, Srgb, BLACK, BLUE, DARKSLATEGREY, GRAY, GREEN, LIGHTBLUE, LIGHTGRAY, LIGHTGREEN, LIGHTPINK, RED, VIOLET, WHITE, YELLOW
+        IntoLinSrgba, Srgb, BLACK, BLUE, DARKSLATEGREY, GRAY, GREEN, LIGHTBLUE, LIGHTGRAY,
+        LIGHTGREEN, LIGHTPINK, RED, VIOLET, WHITE, YELLOW,
     },
     draw::properties::ColorScalar,
     event::{ElementState, MouseButton},
@@ -87,11 +88,13 @@ fn draw_plot<C, const N: usize>(
         let x = i as f32;
         let v = fun(k);
 
-
         if has_prev {
             for ((v, prev), color) in v.into_iter().zip(prev).zip(colors.clone()) {
                 draw.line()
-                    .points(pt2(prev_k, prev * magnification.1), pt2(x, v * magnification.1))
+                    .points(
+                        pt2(prev_k, prev * magnification.1),
+                        pt2(x, v * magnification.1),
+                    )
                     .color(color);
             }
         }
@@ -104,7 +107,7 @@ fn draw_plot<C, const N: usize>(
     for t in common_tangents {
         let v = fun(t.0.k);
         let x = t.0.k * magnification.0;
-        let y = (0.,0.);
+        let y = (0., 0.);
 
         let color = match t.1 {
             TangentDirection::Left => BLACK,
@@ -165,10 +168,8 @@ fn view<R: rand::RngCore>(app: &App, model: &Model<R>, frame: Frame) {
 
     draw_plot(
         &draw,
-        |k| {
-            model.e0.ellipse.xx_outer_tangents_sdf(&model.e1.ellipse, k)
-        },
-        [GREEN, LIGHTGREEN, GRAY, LIGHTGRAY],
+        |k| model.e0.ellipse.xx_outer_tangents_sdf(&model.e1.ellipse, k),
+        [GREEN, LIGHTGREEN],
         model.plot_magnification,
         k,
         &model.common_tangents,

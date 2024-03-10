@@ -64,7 +64,11 @@ impl<T, const D: usize> MdArray<T, D> {
         let max = *self
             .data
             .iter()
-            .max_by(|a, b| a.abs().partial_cmp(&b.abs()).unwrap())
+            .max_by(|a, b| {
+                a.abs()
+                    .partial_cmp(&b.abs())
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
             .unwrap();
         Self {
             data: self.data.into_iter().map(|x| x / max).collect(),
