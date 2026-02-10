@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use ellipse_tangent::{ellipse::Ellipse, utils::deg_to_rad};
 
 fn common_tangents(c: &mut Criterion) {

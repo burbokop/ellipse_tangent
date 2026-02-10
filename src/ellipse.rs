@@ -1,7 +1,82 @@
+use burbomath::math::{Angle, Complex, DeltaAngle, Point, Sq as _, Vector, lerp};
 use num_traits::Pow as _;
 use rustnomial::Polynomial;
+use std::f32::consts::PI;
 
-use crate::{line::Line, utils::{notmalize_array_around_one, SignedSqr as _, SignedSqrt as _}};
+use crate::{
+    line::Line,
+    utils::{SignedSqr as _, SignedSqrt as _, notmalize_array_around_one},
+};
+
+#[inline(always)]
+fn absmax(a: f32, b: f32) -> f32 {
+    if a.is_nan() || b.is_nan() {
+        return f32::NAN;
+    }
+
+    if a.abs() > b.abs() { a } else { b }
+}
+
+#[inline(always)]
+fn absmin(a: f32, b: f32) -> f32 {
+    if a.is_nan() || b.is_nan() {
+        return f32::NAN;
+    }
+
+    if a.abs() < b.abs() { a } else { b }
+}
+
+// pub mod vmath {
+//     use num_traits::Pow as _;
+
+//     #[inline(always)]
+//     pub fn complex_mul(ab: (f32, f32), cd: (f32, f32)) -> (f32, f32) {
+//         let (a, b) = ab;
+//         let (c, d) = cd;
+//         (a * c - b * d, a * d + b * c)
+//     }
+
+//     pub fn add(vec0: (f32, f32), vec1: (f32, f32)) -> (f32, f32) {
+//         let (x0, y0) = vec0;
+//         let (x1, y1) = vec1;
+//         (x0 + x1, y0 + y1)
+//     }
+
+//     pub fn sub(vec0: (f32, f32), vec1: (f32, f32)) -> (f32, f32) {
+//         let (x0, y0) = vec0;
+//         let (x1, y1) = vec1;
+//         (x0 - x1, y0 - y1)
+//     }
+
+//     pub fn left_perp(vec: (f32, f32)) -> (f32, f32) {
+//         let (x, y) = vec;
+//         (-y, x)
+//     }
+
+//     pub fn right_perp(vec: (f32, f32)) -> (f32, f32) {
+//         let (x, y) = vec;
+//         (y, -x)
+//     }
+
+//     pub fn len(vec: (f32, f32)) -> f32 {
+//         let (x, y) = vec;
+//         (x.pow(2.) + y.pow(2.)).sqrt()
+//     }
+
+//     pub fn norm(vec: (f32, f32)) -> (f32, f32) {
+//         div(vec, len(vec))
+//     }
+
+//     pub fn mul(vec: (f32, f32), s: f32) -> (f32, f32) {
+//         let (x, y) = vec;
+//         (x * s, y * s)
+//     }
+
+//     pub fn div(vec: (f32, f32), s: f32) -> (f32, f32) {
+//         let (x, y) = vec;
+//         (x / s, y / s)
+//     }
+// }
 
 #[derive(Debug, Clone)]
 pub struct Ellipse {
@@ -49,6 +124,25 @@ pub struct CommonTangentsIntermediateData {
 }
 
 impl Ellipse {
+    pub fn center(&self) -> Point<f32> {
+        (self.x, self.y).into()
+    }
+
+    pub fn rotation(&self) -> Complex<f32> {
+        (self.r, self.i).into()
+    }
+
+    /// Into world space
+    fn into_ws(&self, p: Point<f32>) -> Point<f32> {
+        (p.rotated(Point::origin(), self.rotation())).absolute(self.center())
+    }
+
+    /// From world space
+    fn from_ws(&self, p: Point<f32>) -> Point<f32> {
+        p.relative(self.center())
+            .rotated(Point::origin(), !self.rotation())
+    }
+
     pub fn new(x: f32, y: f32, a: f32, b: f32, theta: f32) -> Self {
         Self {
             x,
@@ -58,6 +152,338 @@ impl Ellipse {
             r: theta.cos(),
             i: theta.sin(),
         }
+    }
+
+    /// Focal point 0. Returns x, y of the point
+    pub fn f0_old(&self) -> Point<f32> {
+        if self.a.abs() > self.b.abs() {
+            let major_axis = absmax(self.a, self.b);
+            let minor_axis = absmin(self.a, self.b);
+            let focal_len = (major_axis.pow(2.) - minor_axis.pow(2.)).sqrt();
+
+            self.into_ws((0., focal_len).into())
+        } else {
+            let major_axis = absmax(self.a, self.b);
+            let minor_axis = absmin(self.a, self.b);
+            let focal_len = (major_axis.pow(2.) - minor_axis.pow(2.)).sqrt();
+
+            self.into_ws((focal_len, 0.).into())
+        }
+    }
+
+    pub fn f0(&self) -> Point<f32> {
+        if self.a.abs() > self.b.abs() {
+            let focal_len = (self.a.pow(2.) - self.b.pow(2.)).sqrt();
+            self.into_ws((0., focal_len).into())
+        } else {
+            let focal_len = (self.b.pow(2.) - self.a.pow(2.)).sqrt();
+            self.into_ws((focal_len, 0.).into())
+        }
+    }
+
+    pub fn perimeter(&self) -> f32 {
+        let h = (self.a - self.b).sq() / (self.a + self.b).sq();
+        PI * (self.a + self.b) * (1. + 3. * h / (10. + (4. - 3. * h).sqrt()))
+    }
+
+    pub fn from_foci(f0: Point<f32>, f1: Point<f32>, point_on_ellipse: Point<f32>) -> Ellipse {
+        let c = (f0 - f1).len() / 2.;
+
+        // (sum / 2.)^2 = c^2 + b^2;
+        // sum = (a-c)*2 + c*2
+        // sum = a*2
+        // a^2 == c^2 + b^2;
+
+        let sum = (f0 - point_on_ellipse).len() + (f1 - point_on_ellipse).len();
+        let a = sum / 2.;
+        let b = (a.sq() - c.sq()).sqrt();
+
+        let center = lerp(f0, f1, 0.5);
+
+        let rot: Complex<f32> = (f0 - center).rotor();
+
+        let rot: Complex<f32> = rot * Complex::from_polar(1., Angle::from_radians(-PI / 2.));
+
+        Ellipse {
+            x: *center.x(),
+            y: *center.y(),
+            a,
+            b,
+            r: *rot.real(),
+            i: *rot.imag(),
+        }
+    }
+
+    /// Focal point 1. Returns x, y of the point
+    pub fn f1(&self) -> Point<f32> {
+        if self.a.abs() > self.b.abs() {
+            let major_axis = absmax(self.a, self.b);
+            let minor_axis = absmin(self.a, self.b);
+            let focal_len = (major_axis.pow(2.) - minor_axis.pow(2.)).sqrt();
+
+            self.into_ws((0., -focal_len).into())
+        } else {
+            let major_axis = absmax(self.a, self.b);
+            let minor_axis = absmin(self.a, self.b);
+            let focal_len = (major_axis.pow(2.) - minor_axis.pow(2.)).sqrt();
+
+            self.into_ws((-focal_len, 0.).into())
+        }
+    }
+
+    pub(crate) fn radius(&self, t: f32) -> f32 {
+        let a = self.a;
+        let b = self.b;
+        a * b / f32::sqrt((b * f32::cos(t * 2. * PI)).pow(2.) + (a * f32::sin(t * 2. * PI)).pow(2.))
+    }
+
+    pub fn point_on_ellipse(&self, t: f32) -> Point<f32> {
+        // let radius = self.radius(t);
+
+        self.into_ws(
+            (
+                self.b.abs() * f32::sin(t * 2. * PI),
+                self.a.abs() * f32::cos(t * 2. * PI),
+            )
+                .into(),
+        )
+    }
+
+    pub fn acc(&self, t: f32, M: f32, G: f32) -> Vector<f32> {
+        let vec = self.f0() - self.point_on_ellipse(t);
+        let vec_len = vec.len();
+        vec * M * G / vec_len.pow(3.)
+    }
+
+    pub fn tangential_velocity(&self, t: f32, M: f32, G: f32) -> Vector<f32> {
+        // let p = self.point_on_ellipse(t);
+        // let center = (self.x, self.y);
+
+        let vec = self.f0() - self.point_on_ellipse(t);
+        let vec_len = vec.len();
+
+        // let radius = self.radius(t);
+        // println!("radius: {}", radius);
+        let velocity_module = f32::sqrt(G * M * (2. / vec_len - 1. / self.a.abs()));
+
+        // let tangent = (
+        //     radius*f32::sin(t * 2. * PI),
+        //     radius*f32::cos(t * 2. * PI),
+        // );
+
+        // let tangent = vmath::complex_mul( tangent, (self.i, self.r));
+
+        let vel = Vector::from((
+            // radius * f32::sin(t * 2. * PI + PI/2.),
+            // radius * f32::cos(t * 2. * PI + PI/2.),
+            self.b.abs() * f32::cos(t * 2. * PI),
+            self.a.abs() * -f32::sin(t * 2. * PI),
+        )) * self.rotation();
+
+        vel.norm() * velocity_module
+    }
+
+    pub fn angular_velocity(&self, t: f32, M: f32, G: f32) -> DeltaAngle<f32> {
+        let p = self.point_on_ellipse(t);
+        let f0 = self.f0();
+        let r = (p - f0).len();
+        let v = self.tangential_velocity(t, M, G).len();
+
+        DeltaAngle::from_radians(v / r)
+    }
+
+    pub fn f1_from_tangential_velocity(
+        &self,
+        t: f32,
+        M: f32,
+        G: f32,
+        vel: Vector<f32>,
+    ) -> (Vector<f32>, Point<f32>) {
+        let p = self.point_on_ellipse(t);
+        let f0 = self.f0();
+
+        let _r = p - f0;
+        let _v = vel;
+        let _mu = M * G;
+        let _r_len = _r.len();
+        let _v_len = _v.len();
+        let _h = _r.cross(_v);
+        let _energy = _v_len.sq() / 2. - _mu / _r_len;
+        let _a = -_mu / (2. * _energy);
+        let _e = (_r * (_v_len.sq() - _mu / _r_len) - _v * _r.dot(_v)) * (1. / _mu);
+        let _f1 = _e * -2. * _a;
+
+        (_e, f0 + _f1)
+    }
+
+    /// Change ellipse in the way that f0, and position in `t` stays the same and velocity in `t` changeds to `vel`
+    pub fn set_tangential_velicity(
+        &self,
+        t: f32,
+        M: f32,
+        G: f32,
+        vel: Vector<f32>,
+    ) -> (f32, f32, f32) {
+        // consts
+        let p = self.point_on_ellipse(t);
+        let f0 = self.f0();
+        let vec_to_focus = f0 - p;
+        #[allow(unused)]
+        let vec_to_focus_len = vec_to_focus.len();
+        #[allow(unused)]
+        let th = t * 2. * PI;
+        #[allow(unused)]
+        let velocity_module = vel.len();
+        #[allow(unused)]
+        let q = 1. / (4. / vec_to_focus_len - velocity_module.pow(2.) / G / M);
+        // ------
+
+        // #[allow(unused)]
+        // let (new_a, new_b, new_center, new_rotation): (f32, f32, Point<f32>, Complex<f32>) = todo!();
+
+        /*
+
+        #[allow(unreachable_code)]
+        if new_a.abs() > new_b.abs() {
+            assert!(
+                new_center
+                    == f0 - Vector::from((0., (q.pow(2.) - new_b.pow(2.)).sqrt())) * new_rotation
+            );
+
+            assert!(
+                new_rotation
+                    == Complex::div(
+                        p - f0,
+                        Vector::from((
+                            new_b.abs() * f32::sin(th),
+                            q.abs() * f32::cos(th) - (q.pow(2.) - new_b.pow(2.)).sqrt(),
+                        ))
+                    )
+            ); // 3
+
+            /*
+
+                    {(a * c + b * d) / (c^2 + d^2) ,
+                    (b * c - a * d) / (c^2 + d^2) }
+
+
+                {
+                    (new_b.abs() * f32::cos(th) * new_b.abs() * f32::sin(th) + q.abs() * -f32::sin(th) * (q.abs() * f32::cos(th) - (q.pow(2.) - new_b.pow(2.)).sqrt())) / ((new_b.abs() * f32::sin(th))^2 + (q.abs() * f32::cos(th) - (q.pow(2.) - new_b.pow(2.)).sqrt())^2) ,
+                    (q.abs() * -f32::sin(th) * new_b.abs() * f32::sin(th) - new_b.abs() * f32::cos(th) * (q.abs() * f32::cos(th) - (q.pow(2.) - new_b.pow(2.)).sqrt())) / ((new_b.abs() * f32::sin(th))^2 + (q.abs() * f32::cos(th) - (q.pow(2.) - new_b.pow(2.)).sqrt())^2)
+                }
+
+                {
+                    (
+                          new_b^2 * cos(th) * sin(th)
+                        - q^2 * cos(th) * sin(th)
+                        + |q| * sin(th) * sqrt(q^2 - new_b^2)
+                    )
+
+                        / (
+                            new_b^2 * sin(th)^2
+                            - 2*|q| * cos(th) * sqrt(q^2 - new_b^2)
+                            - new_b^2
+                            + 2*q^2 * cos(th)^2
+                        ) ,
+
+                    (|q| * -sin(th) * |new_b| * sin(th) - |new_b| * cos(th) * (|q| * cos(th) - (q^2 - new_b^2).sqrt())) / ((|new_b| * sin(th))^2 + (|q| * cos(th) - (q^2 - new_b^2).sqrt())^2)
+                }
+
+
+
+                                    (
+                          new_b^2 * cos(th) * sin(th)
+                        - q^2 * cos(th) * sin(th)
+                        + |q| * sin(th) * sqrt(q^2 - new_b^2)
+                    )
+
+                        / (
+                            new_b^2 * sin(th)^2
+                            - 2*|q| * cos(th) * sqrt(q^2 - new_b^2)
+                            - new_b^2
+                            + 2*q^2 * cos(th)^2
+                        ) == (vel.x *(p.x-f0.x) + vel.y * (p.y-f0.y)) / ((p.x-f0.x)^2 + (p.y-f0.y)^2)
+
+
+
+
+
+                         {(vel.x *(p.x-f0.x) + vel.y * (p.y-f0.y)) / ((p.x-f0.x)^2 + (p.y-f0.y)^2) ,
+                    (vel.y * (p.x-f0.x) - vel.x * (p.y-f0.y)) / ((p.x-f0.x)^2 + (p.y-f0.y)^2) }
+
+            */
+
+            assert!(
+
+                   com(
+                         new_b.abs() * f32::cos(th),
+                         q.abs() * -f32::sin(th)
+                      )
+
+                 / com(
+                         new_b.abs() * f32::sin(th),
+                         q.abs() * f32::cos(th) - (q.pow(2.) - new_b.pow(2.)).sqrt()
+                      )
+
+                == com(vel) / com(p - f0)
+
+            );
+
+
+        } else {
+            assert!(self.into_ws(((new_b.pow(2.) - q.pow(2.)).sqrt(), 0.).into()) == f0);
+
+            assert!(
+                self.into_ws((new_b.abs() * f32::sin(th), q.abs() * f32::cos(th),).into()) == p
+            );
+
+            assert!(
+                (Vector::from((new_b.abs() * f32::cos(th), q.abs() * -f32::sin(th),))
+                    * new_rotation)
+                    .norm()
+                    == vel.norm()
+            );
+        }
+
+        */
+
+        let sin = |x| f32::sin(x);
+        let cos = |x| f32::cos(x);
+        let sqrt = |x| f32::sqrt(x);
+
+        let hx = (vel.x() * (p.x() - f0.x()) + vel.y() * (p.y() - f0.y()))
+            / ((p.x() - f0.x()).pow(2.) + (p.y() - f0.y()).pow(2.));
+        let jx = hx * sin(th).pow(2.) - cos(th) * sin(th) - hx;
+        let lx = hx * 2. * q.pow(2.) * cos(th).pow(2.) + q.pow(2.) * cos(th) * sin(th);
+        let ox = (q.abs() * sin(th) + hx * 2. * q.abs() * cos(th)).pow(2.);
+
+        // let xxxx =
+        //                jx^2 * new_b^4
+        //              + (ox + 2 * jx * lx) * new_b^2
+        //              - q^2 * ox - lx^2
+        //              == 0
+
+        let desc = (ox + 2. * jx * lx).sq() + 4. * jx.sq() * (q.sq() * ox + lx.sq());
+
+        let new_b0 = (-(ox + 2. * jx * lx) + sqrt(desc)) / (2. * jx.sq());
+        let new_b1 = (-(ox + 2. * jx * lx) - sqrt(desc)) / (2. * jx.sq());
+
+        println!(
+            "ab: {}, {} -> {}, [{}, {}]",
+            self.a, self.b, q, new_b0, new_b1
+        );
+
+        (q, new_b0, new_b1)
+        // todo!()
+    }
+
+    pub fn accelerated(&self, t: f32, M: f32, G: f32, delta_t: f32, acc: Vector<f32>) -> Ellipse {
+        let f0 = self.f0();
+        let p = self.point_on_ellipse(t);
+        let vel = self.tangential_velocity(t, M, G);
+        let delta_v = acc * delta_t;
+        let (_, new_f1) = self.f1_from_tangential_velocity(t, M, G, vel + delta_v);
+        Ellipse::from_foci(f0, new_f1, p)
     }
 
     pub(crate) fn eq_no_rot(&self, x: f32, y: f32) -> f32 {
@@ -271,23 +697,63 @@ impl Ellipse {
         //let norm = notmalize_array([id.o, id.p, id.v, id.u, id.m]);
         //println!("norm: {:?}", norm);
 
-        let poly = Polynomial::<f64>::new(vec![id.o as f64, id.p as f64, id.v as f64, id.u as f64, id.m as f64]);
+        let poly = Polynomial::<f64>::new(vec![
+            id.o as f64,
+            id.p as f64,
+            id.v as f64,
+            id.u as f64,
+            id.m as f64,
+        ]);
 
         //println!("roots2: {:?}", );
 
         let res = match poly.roots() {
             rustnomial::Roots::NoRoots => pp(self, rhs, id.j, id.w, id.l, &[]).collect(),
             rustnomial::Roots::NoRootsFound => pp(self, rhs, id.j, id.w, id.l, &[]).collect(),
-            rustnomial::Roots::OneRealRoot(root) => pp(self, rhs, id.j, id.w, id.l, &[root as f32]).collect(),
-            rustnomial::Roots::TwoRealRoots(r0, r1) => pp(self, rhs, id.j, id.w, id.l, &[r0 as f32, r1 as f32]).collect(),
-            rustnomial::Roots::ThreeRealRoots(r0, r1, r2) => pp(self, rhs, id.j, id.w, id.l, &[r0 as f32, r1 as f32, r2 as f32]).collect(),
-            rustnomial::Roots::ManyRealRoots(roots) => pp(self, rhs, id.j, id.w, id.l, &roots.iter().map(|x| *x as f32).collect::<Vec<_>>()).collect(),
+            rustnomial::Roots::OneRealRoot(root) => {
+                pp(self, rhs, id.j, id.w, id.l, &[root as f32]).collect()
+            }
+            rustnomial::Roots::TwoRealRoots(r0, r1) => {
+                pp(self, rhs, id.j, id.w, id.l, &[r0 as f32, r1 as f32]).collect()
+            }
+            rustnomial::Roots::ThreeRealRoots(r0, r1, r2) => pp(
+                self,
+                rhs,
+                id.j,
+                id.w,
+                id.l,
+                &[r0 as f32, r1 as f32, r2 as f32],
+            )
+            .collect(),
+            rustnomial::Roots::ManyRealRoots(roots) => pp(
+                self,
+                rhs,
+                id.j,
+                id.w,
+                id.l,
+                &roots.iter().map(|x| *x as f32).collect::<Vec<_>>(),
+            )
+            .collect(),
             rustnomial::Roots::OneComplexRoot(_) => pp(self, rhs, id.j, id.w, id.l, &[]).collect(),
-            rustnomial::Roots::TwoComplexRoots(_, _) => pp(self, rhs, id.j, id.w, id.l, &[]).collect(),
-            rustnomial::Roots::ThreeComplexRoots(_, _, _) => pp(self, rhs, id.j, id.w, id.l, &[]).collect(),
-            rustnomial::Roots::ManyComplexRoots(_) => pp(self, rhs, id.j, id.w, id.l, &[]).collect(),
+            rustnomial::Roots::TwoComplexRoots(_, _) => {
+                pp(self, rhs, id.j, id.w, id.l, &[]).collect()
+            }
+            rustnomial::Roots::ThreeComplexRoots(_, _, _) => {
+                pp(self, rhs, id.j, id.w, id.l, &[]).collect()
+            }
+            rustnomial::Roots::ManyComplexRoots(_) => {
+                pp(self, rhs, id.j, id.w, id.l, &[]).collect()
+            }
             rustnomial::Roots::InfiniteRoots => pp(self, rhs, id.j, id.w, id.l, &[]).collect(),
-            rustnomial::Roots::OnlyRealRoots(roots) => pp(self, rhs, id.j, id.w, id.l, &roots.iter().map(|x| *x as f32).collect::<Vec<_>>()).collect(),
+            rustnomial::Roots::OnlyRealRoots(roots) => pp(
+                self,
+                rhs,
+                id.j,
+                id.w,
+                id.l,
+                &roots.iter().map(|x| *x as f32).collect::<Vec<_>>(),
+            )
+            .collect(),
         };
 
         // let res = match roots::find_roots_quartic(id.o, id.p, id.v, id.u, id.m) {
@@ -423,10 +889,10 @@ impl Ellipse {
 
 #[cfg(test)]
 mod tests {
+    use super::Ellipse;
+    use crate::utils::deg_to_rad;
     use num_traits::Pow as _;
     use roots::Roots;
-    use crate::utils::deg_to_rad;
-    use super::Ellipse;
 
     macro_rules! assert_eq_err {
         ($x: expr, $y: expr, $err: expr) => {
