@@ -1,12 +1,11 @@
-use burbomath::math::{Angle, Complex, DeltaAngle, Point, Sq as _, Vector, lerp};
+use burbomath::{
+    Angle, Complex, DeltaAngle, Point, SignedSq as _, SignedSqrt as _, Sq as _, Vector, lerp,
+};
 use num_traits::Pow as _;
 use rustnomial::Polynomial;
 use std::f32::consts::PI;
 
-use crate::{
-    line::Line,
-    utils::{SignedSqr as _, SignedSqrt as _, notmalize_array_around_one},
-};
+use crate::{line::Line, utils::notmalize_array_around_one};
 
 #[inline(always)]
 fn absmax(a: f32, b: f32) -> f32 {
@@ -614,8 +613,8 @@ impl Ellipse {
         let g_1 = (2. * i_1 * r_1 * (a_1.pow(2.) - b_1.pow(2.))) / c;
         let h_1 = ((a_1 * i_1).pow(2.) + (b_1 * r_1).pow(2.)) / c;
 
-        let dx = (x_1 - x_0).ssqr() / c;
-        let dy = (y_1 - y_0).ssqr() / c;
+        let dx = (x_1 - x_0).ssq() / c;
+        let dy = (y_1 - y_0).ssq() / c;
 
         // println!(
         //     "before: {}, {}, {}, {}, {}, {}, {}, {}",

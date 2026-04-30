@@ -5,7 +5,7 @@ mod font_provider;
 mod md_array;
 mod plot;
 
-use burbomath::math::{Angle, Matrix, Point, Vector};
+use burbomath::{Angle, Matrix, Point, Vector};
 use ellipse_tangent::{
     ellipse::{Ellipse, TangentDirection},
     line::Line,

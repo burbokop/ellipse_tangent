@@ -9,3 +9,4 @@ nannou_egui = "0.19.0"
 chromosome = "0.1.0"
 ellipse_tangent = { path = "../.."}
 rand = "0.8.5"
+burbomath = { git = "https://github.com/burbokop/burbomath.git" }
