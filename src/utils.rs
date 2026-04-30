@@ -67,31 +67,3 @@ pub fn notmalize_array_around_one<const N: usize>(mut v: [f32; N]) -> [f32; N] {
 //
 
 // arr.max(|x| x * c)
-
-pub trait SignedSqr {
-    fn ssqr(self) -> Self;
-}
-
-impl SignedSqr for f32 {
-    fn ssqr(self) -> Self {
-        if self >= 0. {
-            self.pow(2.)
-        } else {
-            -self.pow(2.)
-        }
-    }
-}
-
-pub trait SignedSqrt {
-    fn ssqrt(self) -> Self;
-}
-
-impl SignedSqrt for f32 {
-    fn ssqrt(self) -> Self {
-        if self >= 0. {
-            self.sqrt()
-        } else {
-            -(-self).sqrt()
-        }
-    }
-}
