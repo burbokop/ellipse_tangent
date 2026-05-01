@@ -1,4 +1,4 @@
-use std::{clone, ops::Sub, process::Output};
+use std::{clone, marker::PhantomData, ops::Sub, process::Output};
 
 use burbomath::{Matrix, Rect};
 use nannou::{
@@ -43,10 +43,18 @@ where
         .into()
 }
 
-pub fn color_from_hex(c: u32) -> Rgba8 {
+pub const fn color_from_hex(c: u32) -> Rgba8 {
     let a = (c >> 24) as u8;
     let r = (c >> 16) as u8;
     let g = (c >> 08) as u8;
     let b = (c >> 00) as u8;
-    Rgba8::from_components((r, g, b, a))
+    Rgba8 {
+        color: nannou::color::rgb::Rgb {
+            red: r,
+            green: g,
+            blue: b,
+            standard: PhantomData::default(),
+        },
+        alpha: a,
+    }
 }

@@ -1,12 +1,17 @@
-use burbomath::{camera::Camera, DeltaAngle};
+#![feature(const_default)]
+#![feature(const_trait_impl)]
+
+use burbomath::{camera::Camera, Complex, DeltaAngle, Pi};
 use std::{marker::PhantomData, sync::LazyLock};
 
 mod draw;
 mod font_provider;
 mod md_array;
+mod palette;
 mod plot;
 mod utils;
 mod vessel;
+mod event_handler;
 
 use burbomath::{Angle, Point, Vector};
 use ellipse_tangent::{
@@ -15,7 +20,6 @@ use ellipse_tangent::{
     utils::deg_to_rot,
 };
 use nannou::{
-    event,
     image::{DynamicImage, RgbaImage},
     prelude::*,
     text::Font,
@@ -24,10 +28,9 @@ use nannou_egui::{self, egui, Egui};
 use rand::rngs::ThreadRng;
 
 use crate::{
-    draw::{draw_scene, draw_ui},
-    font_provider::FontProvider,
-    utils::nannou_rect_to_rect,
-    vessel::{KinematicBody, Vessel},
+    draw::{scene::draw_scene, ui::{
+            UIData, draw_ui, panels::{FlightInfoData, ManueverInfoData, NavCircleData, ThrottleBarData}
+        }}, event_handler::EventContext, font_provider::FontProvider, utils::nannou_rect_to_rect, vessel::{KinematicBody, Vessel}
 };
 
 static FP: LazyLock<FontProvider> = LazyLock::new(|| FontProvider::new());
@@ -45,23 +48,6 @@ struct Settings {
     time_speed: f32,
 }
 
-struct EventContext {
-    control: bool,
-    shift: bool,
-    mouse_position: Point<i32>,
-    mouse_position_in_world_space: Point<f32>,
-}
-
-impl Default for EventContext {
-    fn default() -> Self {
-        Self {
-            control: Default::default(),
-            shift: Default::default(),
-            mouse_position: (0, 0).into(),
-            mouse_position_in_world_space: (0., 0.).into(),
-        }
-    }
-}
 
 struct EllipseState {
     ellipse: Ellipse,
@@ -114,7 +100,7 @@ struct Model<R: rand::RngCore> {
 }
 
 fn main() {
-    nannou::app(model).update(update).event(event).run();
+    nannou::app(model).update(update).event(event_handler::event).run();
 }
 
 fn model(app: &App) -> Model<impl rand::RngCore> {
@@ -188,149 +174,6 @@ fn raw_window_event<R: rand::RngCore>(
 ) {
     // Let egui handle things like keyboard and mouse input.
     model.egui.handle_raw_event(event);
-}
-
-fn event<R: rand::RngCore>(app: &App, model: &mut Model<R>, event: Event) {
-    match event {
-        Event::WindowEvent { id, simple } => {
-            let w = app.window(id).unwrap();
-
-            match simple {
-                Some(e) => match e {
-                    Moved(vec2) => todo!(),
-                    KeyPressed(event::Key::LShift | event::Key::RShift) => {
-                        model.event_context.shift = true
-                    }
-                    KeyReleased(event::Key::LShift | event::Key::RShift) => {
-                        model.event_context.shift = false
-                    }
-                    KeyPressed(event::Key::LControl | event::Key::RControl) => {
-                        model.event_context.control = true
-                    }
-                    KeyReleased(event::Key::LControl | event::Key::RControl) => {
-                        model.event_context.control = false
-                    }
-                    KeyPressed(..) => {}
-                    KeyReleased(..) => {}
-                    ReceivedCharacter(_) => todo!(),
-                    MouseMoved(vec2) => {
-                        model.event_context.mouse_position = (vec2.x as i32, vec2.y as i32).into();
-                        model.event_context.mouse_position_in_world_space =
-                            &(!&model.camera.transformation()).unwrap()
-                                * &model.event_context.mouse_position.as_f32();
-
-                        // model.cursor_pos = pt2(
-                        //     mouse_position.x as f32 / window_scale_factor as f32 + window_rect.x.start,
-                        //     -mouse_position.y as f32 / window_scale_factor as f32 - window_rect.y.start,
-                        // );
-
-                        if !model
-                            .e0
-                            .update(model.event_context.mouse_position_in_world_space)
-                        {
-                            model
-                                .e1
-                                .update(model.event_context.mouse_position_in_world_space);
-                        }
-                    }
-                    MousePressed(button) => {
-                        return;
-
-                        if model.e0.ellipse.eq()(
-                            *model.event_context.mouse_position_in_world_space.x() as f32,
-                            *model.event_context.mouse_position_in_world_space.y() as f32,
-                        ) < 0.
-                        {
-                            match button {
-                                MouseButton::Left => model.e0.is_grabbed_to_move = true,
-                                MouseButton::Right => model.e0.is_grabbed_to_rotate = true,
-                                MouseButton::Middle => model.e0.is_grabbed_to_scale = true,
-                                _ => {}
-                            }
-                        }
-                        if model.e1.ellipse.eq()(
-                            *model.event_context.mouse_position_in_world_space.x() as f32,
-                            *model.event_context.mouse_position_in_world_space.y() as f32,
-                        ) < 0.
-                        {
-                            match button {
-                                MouseButton::Left => model.e1.is_grabbed_to_move = true,
-                                MouseButton::Right => model.e1.is_grabbed_to_rotate = true,
-                                MouseButton::Middle => model.e1.is_grabbed_to_scale = true,
-                                _ => {}
-                            }
-                        }
-                    }
-                    MouseReleased(mouse_button) => {
-                        model.e0.is_grabbed_to_move = false;
-                        model.e0.is_grabbed_to_rotate = false;
-                        model.e0.is_grabbed_to_scale = false;
-                        model.e1.is_grabbed_to_move = false;
-                        model.e1.is_grabbed_to_rotate = false;
-                        model.e1.is_grabbed_to_scale = false;
-                    }
-                    MouseEntered => {}
-                    MouseExited => {}
-                    MouseWheel(mouse_scroll_delta, touch_phase) => {
-                        let delta_to_y = |a: MouseScrollDelta| -> f32 {
-                            match a {
-                                MouseScrollDelta::LineDelta(_, y) => y,
-                                MouseScrollDelta::PixelDelta(physical_position) => todo!(),
-                            }
-                        };
-
-                        let angle_delta_to_scale_division = |angle_delta: f32| {
-                            let base: f32 = 1.2;
-
-                            base.powf(angle_delta)
-                        };
-
-                        let angle_delta_to_translation_delta = |angle_delta: f32| {
-                            let velocity: f32 = 10.; // px per step
-                            return velocity * angle_delta;
-                        };
-
-                        let position = model.event_context.mouse_position.as_f32();
-                        let y = delta_to_y(mouse_scroll_delta);
-
-                        if model.event_context.control {
-                            // zoom
-                            model.camera.concat_scale_centered(
-                                angle_delta_to_scale_division(y),
-                                position,
-                                position,
-                            );
-                        } else if model.event_context.shift {
-                            // scroll horizontally
-                            model
-                                .camera
-                                .add_translation((angle_delta_to_translation_delta(y), 0.).into());
-                        } else {
-                            // scroll vertically
-                            model
-                                .camera
-                                .add_translation((0., angle_delta_to_translation_delta(y)).into());
-                        }
-                    }
-
-                    Resized { .. } => {}
-                    HoveredFile(path_buf) => todo!(),
-                    DroppedFile(path_buf) => todo!(),
-                    HoveredFileCancelled => todo!(),
-                    Touch(touch_event) => todo!(),
-                    TouchPressure(touchpad_pressure) => todo!(),
-                    Focused => {}
-                    Unfocused => {}
-                    Closed => {}
-                },
-                None => {}
-            }
-        }
-        Event::DeviceEvent(device_id, device_event) => {}
-        Event::Update(update) => {}
-        Event::Suspended => println!("Suspended: {:?}", event),
-        Event::Resumed => println!("Resumed: {:?}", event),
-    }
 }
 
 fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
@@ -413,6 +256,45 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
     model.common_tangents = model.e0.ellipse.common_tangents(&model.e1.ellipse);
 }
 
+fn produce_ui_data<R: rand::RngCore>(model: &Model<R>) -> UIData {
+    let throttle_bar_data = ThrottleBarData {
+        throttle: model.vessel.kinematic_body.thrust() / model.vessel.kinematic_body.max_thrust(),
+    };
+
+    let t = model.e0.theta.degrees() / 360.;
+    let tangential_velocity = model.e0.ellipse.tangential_velocity(t, M, G);
+
+    let heading = model.vessel.kinematic_body.complex_heading();
+
+    let nav_data = NavCircleData {
+        prograde: tangential_velocity * heading,
+        retrograde: tangential_velocity * heading * Complex::from_polar(1., Pi::pi()),
+        radial_in: tangential_velocity * heading * Complex::from_cartesian(0., 1.),
+        radial_out: tangential_velocity * heading * Complex::from_cartesian(0., -1.),
+        maneuver: (1., 1.).into(),
+    };
+
+    let manuever_info_data = ManueverInfoData {
+        manuever_mode: false,
+    };
+
+    let flight_info_data = FlightInfoData {
+        velocity: tangential_velocity.len(),
+        apoapsis: 10000.,
+        periapsis: 2000.,
+        delta_v_capacity: 100.,
+        delta_v_needed_for_manuever: 100.,
+        time_to_next_transition_point: 1000.,
+    };
+
+    UIData {
+        nav_circle: nav_data,
+        flight_info: flight_info_data,
+        manuever_info: manuever_info_data,
+        throttle_bar: throttle_bar_data,
+    }
+}
+
 fn view<R: rand::RngCore>(app: &App, model: &Model<R>, frame: Frame) {
     let draw = app.draw();
 
@@ -424,7 +306,9 @@ fn view<R: rand::RngCore>(app: &App, model: &Model<R>, frame: Frame) {
 
     let window_rect = nannou_rect_to_rect(app.window_rect());
 
-    draw_ui(&draw, window_rect, model);
+    let ui_data = produce_ui_data(model);
+
+    draw_ui(&draw, window_rect, &ui_data);
 
     draw.to_frame(app, &frame).unwrap();
     model.egui.draw_to_frame(&frame).unwrap();
