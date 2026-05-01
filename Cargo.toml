@@ -24,5 +24,6 @@ harness = false
 [workspace]
 members = [
     "examples/gravity_simulator",
-    "examples/tangent_simulator"
+    "examples/tangent_simulator",
+    "examples/fading_ellipse",
 ]
