@@ -41,6 +41,10 @@ impl KinematicBody {
         self.thrust
     }
 
+    pub(crate) fn max_thrust(&self) -> f32 {
+        self.max_thrust
+    }
+
     pub(crate) fn mass(&self) -> f32 {
         self.mass
     }

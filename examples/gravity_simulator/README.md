@@ -11,7 +11,7 @@ priority - less means sould be done erlier
 5. Pretty interface - priority 0
     - nav circle
     - manuever planner mode with keyboard control
-    - display of velocity, apoapsis, periapsis, delta v, time to transition points
+    - display of velocity, apoapsis, periapsis, delta v, time to transition points - ✔
     - orbit that fades behind - ✔
 6. AI vessels doing tasks - priority 7
 7. Stations and docking - priority 5
