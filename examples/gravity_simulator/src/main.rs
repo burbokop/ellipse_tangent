@@ -4,6 +4,7 @@ use std::{marker::PhantomData, ops::Deref, sync::LazyLock};
 mod font_provider;
 mod md_array;
 mod plot;
+mod draw;
 
 use burbomath::{Angle, Matrix, Point, Vector};
 use ellipse_tangent::{
@@ -22,7 +23,7 @@ use nannou::{
 use nannou_egui::{self, egui, Egui};
 use rand::rngs::ThreadRng;
 
-use crate::font_provider::FontProvider;
+use crate::{draw::draw_fading_ellipse, font_provider::FontProvider};
 
 static FP: LazyLock<FontProvider> = LazyLock::new(|| FontProvider::new());
 static FONT: LazyLock<Font> = LazyLock::new(|| FP.font());
@@ -158,9 +159,9 @@ fn model(app: &App) -> Model<impl rand::RngCore> {
         settings: Settings {
             delta_v_angle: 0.,
             delta_v_len: 1.,
-            theta_auto_change: false,
+            theta_auto_change: true,
             thrust_acceleration: 0.,
-            time_speed: 0.000000001,
+            time_speed: 0.001,
         },
         egui,
         image: DynamicImage::ImageRgba8(RgbaImage::new(
@@ -232,6 +233,8 @@ fn event<R: rand::RngCore>(app: &App, model: &mut Model<R>, event: Event) {
                         }
                     }
                     MousePressed(button) => {
+                        return;
+
                         if model.e0.ellipse.eq()(
                             *model.event_context.mouse_position_in_world_space.x() as f32,
                             *model.event_context.mouse_position_in_world_space.y() as f32,
@@ -468,13 +471,21 @@ fn draw_ellipse(
     name: &str,
     compensatory_scale: f32,
 ) {
-    draw.ellipse()
-        .x(ellipse.x)
-        .y(ellipse.y)
-        .w(ellipse.a * 2.)
-        .h(ellipse.b * 2.)
-        .rotate(-f32::atan2(ellipse.r, ellipse.i))
-        .color(color_from_hex(PALLETE[1]));
+    // draw.ellipse()
+    //     .x(ellipse.x)
+    //     .y(ellipse.y)
+    //     .w(ellipse.a * 2.)
+    //     .h(ellipse.b * 2.)
+    //     .rotate(-f32::atan2(ellipse.r, ellipse.i))
+    //     .stroke_weight(compensatory_scale)
+    //     .stroke_color(color_from_hex(PALLETE[1]))
+    //     .color(Rgba8::from_components((0,0,0,0)));
+
+
+
+
+    draw_fading_ellipse(draw, ellipse, t, Rgb::from_components((0.2, 0.5, 1.)), compensatory_scale);
+
 
     let f0 = ellipse.f0();
     let f1 = ellipse.f1();
@@ -542,16 +553,18 @@ fn draw_ellipse(
 
     let new_ellipse = Ellipse::from_foci(f0, new_f1, p);
 
-    draw.ellipse()
-        .x(new_ellipse.x)
-        .y(new_ellipse.y)
-        .w(new_ellipse.a * 2.)
-        .h(new_ellipse.b * 2.)
-        .rotate(-f32::atan2(new_ellipse.r, new_ellipse.i))
-        .color(Alpha {
-            color: RED,
-            alpha: 0.4,
-        });
+    // draw.ellipse()
+    //     .x(new_ellipse.x)
+    //     .y(new_ellipse.y)
+    //     .w(new_ellipse.a * 2.)
+    //     .h(new_ellipse.b * 2.)
+    //     .rotate(-f32::atan2(new_ellipse.r, new_ellipse.i))
+    //     .color(Alpha {
+    //         color: RED,
+    //         alpha: 0.4,
+    //     });
+
+
 
     draw.x(ellipse.x)
         .y(ellipse.y)
@@ -560,6 +573,8 @@ fn draw_ellipse(
         .color(BLACK);
 
     let new_t = t / ellipse.perimeter() * new_ellipse.perimeter();
+
+    draw_fading_ellipse(draw, &new_ellipse, new_t, Rgb::from_components((1., 0.5, 0.3)), compensatory_scale);
 
     let new_p = new_ellipse.point_on_ellipse(new_t);
     draw.x(*new_p.x())
@@ -573,6 +588,8 @@ fn draw_ellipse(
         })
         .stroke_weight(1.)
         .stroke_color(RED);
+
+
 }
 
 fn matrix_to_mat3(x: Matrix<f32>) -> Mat3 {

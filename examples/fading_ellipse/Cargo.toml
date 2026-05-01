@@ -1,0 +1,13 @@
+[package]
+name = "fading_ellipse"
+version = "0.0.1"
+edition = "2021"
+
+[dependencies]
+nannou = "0.19.0"
+nannou_egui = "0.19.0"
+ellipse_tangent = { path = "../.."}
+rand = "0.8.5"
+font-loader = "0.11.0"
+serde="1.0"
+burbomath = { git = "https://github.com/burbokop/burbomath.git" }
