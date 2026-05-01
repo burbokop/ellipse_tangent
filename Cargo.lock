@@ -249,7 +249,7 @@ checksum = "5d20789868f4b01b2f2caec9f5c4e0213b41e3e5702a50157d699ae31ced2fcb"
 [[package]]
 name = "burbomath"
 version = "0.0.1"
-source = "git+https://github.com/burbokop/burbomath.git#6a88bc37281195a7af339057f43229cf9890ca17"
+source = "git+https://github.com/burbokop/burbomath.git#f6fd509f2d87087160d0e5d677ba3f825e813c73"
 dependencies = [
  "rand 0.9.4",
  "serde",

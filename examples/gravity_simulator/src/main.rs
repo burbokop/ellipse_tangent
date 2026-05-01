@@ -1,20 +1,20 @@
-use burbomath::camera::Camera;
-use std::{marker::PhantomData, ops::Deref, sync::LazyLock};
+use burbomath::{camera::Camera, DeltaAngle};
+use std::{marker::PhantomData, sync::LazyLock};
 
+mod draw;
 mod font_provider;
 mod md_array;
 mod plot;
-mod draw;
+mod utils;
+mod vessel;
 
-use burbomath::{Angle, Matrix, Point, Vector};
+use burbomath::{Angle, Point, Vector};
 use ellipse_tangent::{
     ellipse::{Ellipse, TangentDirection},
     line::Line,
     utils::deg_to_rot,
 };
 use nannou::{
-    color::Alpha,
-    draw::{primitive, Drawing},
     event,
     image::{DynamicImage, RgbaImage},
     prelude::*,
@@ -23,22 +23,19 @@ use nannou::{
 use nannou_egui::{self, egui, Egui};
 use rand::rngs::ThreadRng;
 
-use crate::{draw::draw_fading_ellipse, font_provider::FontProvider};
+use crate::{
+    draw::{draw_scene, draw_ui},
+    font_provider::FontProvider,
+    utils::nannou_rect_to_rect,
+    vessel::{KinematicBody, Vessel},
+};
 
 static FP: LazyLock<FontProvider> = LazyLock::new(|| FontProvider::new());
 static FONT: LazyLock<Font> = LazyLock::new(|| FP.font());
 
-pub fn color_from_hex(c: u32) -> Rgba8 {
-    let a = (c >> 24) as u8;
-    let r = (c >> 16) as u8;
-    let g = (c >> 08) as u8;
-    let b = (c >> 00) as u8;
-    Rgba8::from_components((r, g, b, a))
-}
-
 const M: f32 = 1000_000_000_000.; // kg
 const G: f32 = 6.67430e-11; // m3 * kg^(−1) * s^(−2);
-const PALLETE: [u32; 5] = [0xff3D348B, 0xff7678ED, 0xffF7B801, 0xffF18701, 0xffF35B04];
+const PALLETE: [u32; 5] = [0xff230D4A, 0xff7678ED, 0xffF7B801, 0xffF18701, 0xffF35B04];
 
 struct Settings {
     delta_v_angle: f32,
@@ -101,6 +98,7 @@ struct Windows {
 }
 
 struct Model<R: rand::RngCore> {
+    vessel: Vessel,
     e0: EllipseState,
     e1: EllipseState,
     common_tangents: Vec<(Line, TangentDirection)>,
@@ -177,6 +175,9 @@ fn model(app: &App) -> Model<impl rand::RngCore> {
         camera: Camera::default(),
         event_context: Default::default(),
         _r: PhantomData::<ThreadRng>::default(),
+        vessel: Vessel {
+            kinematic_body: KinematicBody::new(DeltaAngle::from_radians(0.01), 0.1, 1000.),
+        },
     }
 }
 
@@ -412,279 +413,18 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
     model.common_tangents = model.e0.ellipse.common_tangents(&model.e1.ellipse);
 }
 
-fn draw_line_by_kd<'a>(draw: &'a Draw, k: f32, d: f32) -> Drawing<'a, primitive::Line> {
-    let start = pt2(-400., -400.);
-    let end = pt2(400., 400.);
-
-    let x0 = start.x;
-    let x1 = end.x;
-
-    let y0 = k * x0 + d;
-    let y1 = k * x1 + d;
-
-    draw.line().points(pt2(x0, y0), pt2(x1, y1))
-}
-
-fn draw_line<'a>(draw: &'a Draw, line: Line) -> Drawing<'a, primitive::Line> {
-    draw_line_by_kd(draw, line.k, line.d)
-}
-
-fn draw_vector(
-    draw: &Draw,
-    name: &str,
-    position: Point<f32>,
-    vec: Vector<f32>,
-    color: u32,
-    compensatory_scale: f32,
-) {
-    if position.x().is_finite()
-        && position.y().is_finite()
-        && vec.x().is_finite()
-        && vec.y().is_finite()
-    {
-        let points = [
-            <(f32, f32)>::from(position).into(),
-            <(f32, f32)>::from(position + vec).into(),
-        ];
-        draw.line()
-            .points(points[0], points[1])
-            .weight(1. * compensatory_scale)
-            .color(color_from_hex(color));
-
-        let c = (points[0] + points[1]) / 2.;
-
-        // a⃗;
-        draw.x(c.x)
-            .y(c.y)
-            .scale(compensatory_scale)
-            .text(&format!("{}\u{20D7}: {:.2}", name, vec.len()))
-            .color(color_from_hex(color))
-            .font(FONT.deref().clone());
-    }
-}
-
-fn draw_ellipse(
-    draw: &Draw,
-    ellipse: &Ellipse,
-    t: f32,
-    delta_v: Vector<f32>,
-    name: &str,
-    compensatory_scale: f32,
-) {
-    // draw.ellipse()
-    //     .x(ellipse.x)
-    //     .y(ellipse.y)
-    //     .w(ellipse.a * 2.)
-    //     .h(ellipse.b * 2.)
-    //     .rotate(-f32::atan2(ellipse.r, ellipse.i))
-    //     .stroke_weight(compensatory_scale)
-    //     .stroke_color(color_from_hex(PALLETE[1]))
-    //     .color(Rgba8::from_components((0,0,0,0)));
-
-
-
-
-    draw_fading_ellipse(draw, ellipse, t, Rgb::from_components((0.2, 0.5, 1.)), compensatory_scale);
-
-
-    let f0 = ellipse.f0();
-    let f1 = ellipse.f1();
-    let focal_point_size = ellipse.a.abs().min(ellipse.b.abs()) / 10.;
-
-    draw.ellipse()
-        .x(*f0.x())
-        .y(*f0.y())
-        .radius(focal_point_size)
-        .color(YELLOW);
-
-    draw.x(*f1.x())
-        .y(*f1.y())
-        .scale(compensatory_scale)
-        .ellipse()
-        .radius(focal_point_size)
-        .color(BLUEVIOLET);
-
-    let p = ellipse.point_on_ellipse(t);
-    draw.x(*p.x())
-        .y(*p.y())
-        .scale(compensatory_scale)
-        .ellipse()
-        .radius(focal_point_size)
-        .color(CYAN);
-
-    let acc = ellipse.acc(t, M, G);
-    let vel = ellipse.tangential_velocity(t, M, G);
-
-    draw_vector(draw, "v", p, vel, PALLETE[2], compensatory_scale);
-    draw_vector(draw, "a", p, acc, PALLETE[3], compensatory_scale);
-    draw_vector(draw, "Δv", p + vel, delta_v, PALLETE[4], compensatory_scale);
-
-    let (excentricity, new_f1) = ellipse.f1_from_tangential_velocity(t, M, G, vel + delta_v);
-
-    if new_f1.x().is_finite()
-        && new_f1.y().is_finite()
-        && new_f1.x().abs() < 1000000.
-        && new_f1.y().abs() < 1000000.
-    {
-        draw.x(*new_f1.x())
-            .y(*new_f1.y())
-            .scale(compensatory_scale)
-            .ellipse()
-            .radius(focal_point_size)
-            .color(MAGENTA);
-    } else {
-        eprintln!("new_f1 is nan")
-    }
-
-    // if excentricity.x().is_finite()
-    //     && excentricity.y().is_finite()
-    //     && excentricity.x().abs() > 0.00001
-    //     && excentricity.y().abs() > 0.00001
-    //     && excentricity.x().abs() < 1000000.
-    //     && excentricity.y().abs() < 1000000.
-    // {
-    //     draw.line()
-    //         .points(
-    //             <(f32, f32)>::from(f0).into(),
-    //             <(f32, f32)>::from(f0 + excentricity).into(),
-    //         )
-    //         .color(RED);
-    // }
-
-    let new_ellipse = Ellipse::from_foci(f0, new_f1, p);
-
-    // draw.ellipse()
-    //     .x(new_ellipse.x)
-    //     .y(new_ellipse.y)
-    //     .w(new_ellipse.a * 2.)
-    //     .h(new_ellipse.b * 2.)
-    //     .rotate(-f32::atan2(new_ellipse.r, new_ellipse.i))
-    //     .color(Alpha {
-    //         color: RED,
-    //         alpha: 0.4,
-    //     });
-
-
-
-    draw.x(ellipse.x)
-        .y(ellipse.y)
-        .scale(compensatory_scale)
-        .text(name)
-        .color(BLACK);
-
-    let new_t = t / ellipse.perimeter() * new_ellipse.perimeter();
-
-    draw_fading_ellipse(draw, &new_ellipse, new_t, Rgb::from_components((1., 0.5, 0.3)), compensatory_scale);
-
-    let new_p = new_ellipse.point_on_ellipse(new_t);
-    draw.x(*new_p.x())
-        .y(*new_p.y())
-        .scale(compensatory_scale)
-        .ellipse()
-        .radius(focal_point_size)
-        .color(Alpha {
-            color: RED,
-            alpha: 0.,
-        })
-        .stroke_weight(1.)
-        .stroke_color(RED);
-
-
-}
-
-fn matrix_to_mat3(x: Matrix<f32>) -> Mat3 {
-    let [a, b, c, d, e, f, g, h, i] = x.into();
-
-    // Mat3::from_cols(
-    //     (a,b,c).into(),
-    //     (d,e,f).into(),
-    //     (g,h,i).into()
-    // )
-
-    Mat3::from_cols((a, d, g).into(), (b, e, h).into(), (c, f, i).into())
-}
-
-fn matrix_to_mat4(x: Matrix<f32>) -> Mat4 {
-    let [a, b, c, d, e, f, g, h, i] = x.into();
-
-    Mat4::from_cols(
-        (a, b, 0., c).into(),
-        (d, e, 0., f).into(),
-        (g, h, i, 0.).into(),
-        (0., 0., 0., 1.).into(),
-    )
-    .transpose()
-}
-
 fn view<R: rand::RngCore>(app: &App, model: &Model<R>, frame: Frame) {
-    let draw = app
-        .draw()
-        .transform(matrix_to_mat4(model.camera.transformation()));
+    let draw = app.draw();
 
-    draw.background().color(color_from_hex(PALLETE[0]));
+    draw_scene(&draw, model);
 
-    let delta_v = Vector::from_polar(
-        model.settings.delta_v_len,
-        Angle::from_degrees(model.settings.delta_v_angle),
-    );
+    // let win = app.window(model.windows.main_window).unwrap();
+    // let window_size = win.inner_size_pixels();
+    // let window_rect = (0.,0., window_size.0 as f32, window_size.1 as f32).into();
 
-    let compensatory_scale = 1. / model.camera.transformation().average_scale();
+    let window_rect = nannou_rect_to_rect(app.window_rect());
 
-    draw_ellipse(
-        &draw,
-        &model.e0.ellipse,
-        model.e0.theta.degrees() / 360.,
-        delta_v,
-        "e0",
-        compensatory_scale,
-    );
-    draw_ellipse(
-        &draw,
-        &model.e1.ellipse,
-        model.e1.theta.degrees() / 360.,
-        delta_v,
-        "e1",
-        compensatory_scale,
-    );
-
-    //let texture = wgpu::Texture::from_image(app, &model.image);
-
-    //draw.texture(&texture);
-
-    // let k = deg_to_rad(90.-model.settings.theta).tan();
-
-    // let e0d = model.e0.ellipse.tangent_d(k);
-    // let e1d = model.e1.ellipse.tangent_d(k);
-
-    // draw_line_by_kd(&draw, k, e0d.0)
-    //     .stroke_weight(1.)
-    //     .color(GREEN);
-    // draw_line_by_kd(&draw, k, e0d.1)
-    //     .stroke_weight(1.)
-    //     .color(LIGHTGREEN);
-    // draw_line_by_kd(&draw, k, e1d.0)
-    //     .stroke_weight(1.)
-    //     .color(BLUE);
-    // draw_line_by_kd(&draw, k, e1d.1)
-    //     .stroke_weight(1.)
-    //     .color(LIGHTBLUE);
-
-    draw.x(*model.event_context.mouse_position_in_world_space.x())
-        .y(*model.event_context.mouse_position_in_world_space.y())
-        .scale(compensatory_scale)
-        .ellipse()
-        .stroke(VIOLET)
-        .stroke_weight(2.)
-        .radius(5.)
-        .color(BLACK);
-
-    // for t in &model.common_tangents {
-    //     draw_line(&draw, t.0).stroke_weight(3.).color(VIOLET);
-    //     draw_line(&draw, t.0).stroke_weight(1.).color(match t.1 {
-    //         TangentDirection::Left => BLACK,
-    //         TangentDirection::Right => WHITE,
-    //     });
-    // }
+    draw_ui(&draw, window_rect, model);
 
     draw.to_frame(app, &frame).unwrap();
     model.egui.draw_to_frame(&frame).unwrap();
