@@ -1,6 +1,11 @@
 use crate::{
-    draw::common::{draw_fading_ellipse, draw_vector},
+    draw::{
+        common::{draw_fading_ellipse, draw_vector, draw_vector_with_icon},
+        ui::icons::{draw_heading_icon, draw_prograde_icon},
+    },
+    palette,
     utils::{color_from_hex, matrix_to_mat4},
+    vessel::Vessel,
     Model, G, M, PALLETE,
 };
 use burbomath::{Angle, Vector};
@@ -13,6 +18,7 @@ use nannou::{
 fn draw_ellipse(
     draw: &Draw,
     ellipse: &Ellipse,
+    vessel: &Vessel,
     t: f32,
     delta_v: Vector<f32>,
     name: &str,
@@ -64,7 +70,24 @@ fn draw_ellipse(
     let acc = ellipse.acc(t, M, G);
     let vel = ellipse.tangential_velocity(t, M, G);
 
-    draw_vector(draw, "v", p, vel, PALLETE[2], compensatory_scale);
+    draw_vector_with_icon(
+        draw,
+        draw_heading_icon,
+        p,
+        vessel.kinematic_body.heading(),
+        palette::UI_STROKE_COLOR,
+        compensatory_scale,
+    );
+
+    draw_vector_with_icon(
+        draw,
+        draw_prograde_icon,
+        p,
+        vel,
+        palette::PROGRADE_RETROGRADE_COLOR,
+        compensatory_scale,
+    );
+
     draw_vector(draw, "a", p, acc, PALLETE[3], compensatory_scale);
     draw_vector(draw, "Δv", p + vel, delta_v, PALLETE[4], compensatory_scale);
 
@@ -158,14 +181,17 @@ pub(crate) fn draw_scene<R: rand::RngCore>(draw: &Draw, model: &Model<R>) {
     draw_ellipse(
         &draw,
         &model.e0.ellipse,
+        &model.vessel,
         model.e0.theta.degrees() / 360.,
         delta_v,
         "e0",
         compensatory_scale,
     );
+
     draw_ellipse(
         &draw,
         &model.e1.ellipse,
+        &model.vessel,
         model.e1.theta.degrees() / 360.,
         delta_v,
         "e1",

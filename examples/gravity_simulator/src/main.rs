@@ -1,17 +1,17 @@
 #![feature(const_default)]
 #![feature(const_trait_impl)]
 
-use burbomath::{camera::Camera, Complex, DeltaAngle, Pi};
+use burbomath::{camera::Camera, Complex, DeltaAngle, Matrix, Pi};
 use std::{marker::PhantomData, sync::LazyLock};
 
 mod draw;
+mod event_handler;
 mod font_provider;
 mod md_array;
 mod palette;
 mod plot;
 mod utils;
 mod vessel;
-mod event_handler;
 
 use burbomath::{Angle, Point, Vector};
 use ellipse_tangent::{
@@ -28,9 +28,18 @@ use nannou_egui::{self, egui, Egui};
 use rand::rngs::ThreadRng;
 
 use crate::{
-    draw::{scene::draw_scene, ui::{
-            UIData, draw_ui, panels::{FlightInfoData, ManueverInfoData, NavCircleData, ThrottleBarData}
-        }}, event_handler::EventContext, font_provider::FontProvider, utils::nannou_rect_to_rect, vessel::{KinematicBody, Vessel}
+    draw::{
+        scene::draw_scene,
+        ui::{
+            draw_ui,
+            panels::{FlightInfoData, ManueverInfoData, NavCircleData, ThrottleBarData},
+            UIData,
+        },
+    },
+    event_handler::EventHandlerContext,
+    font_provider::FontProvider,
+    utils::{center_camera_around_a_point, nannou_rect_to_rect},
+    vessel::{KinematicBody, Vessel},
 };
 
 static FP: LazyLock<FontProvider> = LazyLock::new(|| FontProvider::new());
@@ -47,7 +56,6 @@ struct Settings {
     thrust_acceleration: f32,
     time_speed: f32,
 }
-
 
 struct EllipseState {
     ellipse: Ellipse,
@@ -95,12 +103,15 @@ struct Model<R: rand::RngCore> {
     plot_magnification: (f32, f32),
     plot_magnification_change_axis_y: bool,
     camera: Camera<f32>,
-    event_context: EventContext,
+    event_handler_context: EventHandlerContext,
     _r: PhantomData<R>,
 }
 
 fn main() {
-    nannou::app(model).update(update).event(event_handler::event).run();
+    nannou::app(model)
+        .update(update)
+        .event(event_handler::event)
+        .run();
 }
 
 fn model(app: &App) -> Model<impl rand::RngCore> {
@@ -159,7 +170,7 @@ fn model(app: &App) -> Model<impl rand::RngCore> {
         plot_magnification: (1., 1.),
         plot_magnification_change_axis_y: false,
         camera: Camera::default(),
-        event_context: Default::default(),
+        event_handler_context: Default::default(),
         _r: PhantomData::<ThreadRng>::default(),
         vessel: Vessel {
             kinematic_body: KinematicBody::new(DeltaAngle::from_radians(0.01), 0.1, 1000.),
@@ -213,6 +224,18 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
                 settings.delta_v_len -= settings.thrust_acceleration * dt;
                 println!("settings.delta_v_len: {}", settings.delta_v_len);
             }
+        }
+
+        if model.event_handler_context.center_on_vessel_mode() {
+            let t = model.e1.theta.degrees() / 360.;
+            let target_point = model.e1.ellipse.point_on_ellipse(t);
+            println!("AAAA: {:?}", target_point);
+
+            let window_rect = nannou_rect_to_rect(app.window_rect());
+
+            let window_center = window_rect.center();
+
+            center_camera_around_a_point(&mut model.camera, target_point, window_center);
         }
 
         egui::Window::new("Settings").show(&ctx, |ui| {
