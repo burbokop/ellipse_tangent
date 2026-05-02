@@ -124,7 +124,9 @@ pub fn draw_vector_with_icon<C>(
         && vec.x().is_finite()
         && vec.y().is_finite()
     {
-        let icon_radius = 8.;
+        let icon_radius = 8. * compensatory_scale;
+
+        let icon_radius = f32::min(vec.len() / 2., icon_radius);
 
         let points = [
             <(f32, f32)>::from(position).into(),
@@ -136,6 +138,12 @@ pub fn draw_vector_with_icon<C>(
             .weight(1. * compensatory_scale)
             .color(color.clone());
 
-        icon(draw, position + vec, color, icon_radius, compensatory_scale);
+        icon(
+            draw,
+            position + vec,
+            color,
+            icon_radius / compensatory_scale,
+            compensatory_scale,
+        );
     }
 }

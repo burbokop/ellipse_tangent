@@ -264,3 +264,18 @@ pub fn draw_maneuver_icon(
         .color(color)
         .weight(1.);
 }
+
+pub fn draw_heading_icon(
+    draw: &Draw,
+    center: Point<f32>,
+    color: Rgba8,
+    radius: f32,
+    compensatory_scale: f32,
+) {
+    draw.x(*center.x())
+        .y(*center.y())
+        .scale(compensatory_scale)
+        .ellipse()
+        .radius(radius / 4.)
+        .color(color);
+}

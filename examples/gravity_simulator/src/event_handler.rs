@@ -8,22 +8,29 @@ use nannou::{
     text::Font,
 };
 
-
-pub struct EventContext {
+pub struct EventHandlerContext {
     control: bool,
     shift: bool,
     mouse_position: Point<i32>,
     mouse_position_in_world_space: Point<f32>,
+    center_on_vessel_mode: bool,
 }
 
-impl Default for EventContext {
+impl Default for EventHandlerContext {
     fn default() -> Self {
         Self {
             control: Default::default(),
             shift: Default::default(),
             mouse_position: (0, 0).into(),
             mouse_position_in_world_space: (0., 0.).into(),
+            center_on_vessel_mode: true,
         }
+    }
+}
+
+impl EventHandlerContext {
+    pub fn center_on_vessel_mode(&self) -> bool {
+        self.center_on_vessel_mode
     }
 }
 
@@ -36,25 +43,29 @@ pub fn event<R: rand::RngCore>(app: &App, model: &mut Model<R>, event: Event) {
                 Some(e) => match e {
                     Moved(vec2) => todo!(),
                     KeyPressed(event::Key::LShift | event::Key::RShift) => {
-                        model.event_context.shift = true
+                        model.event_handler_context.shift = true
                     }
                     KeyReleased(event::Key::LShift | event::Key::RShift) => {
-                        model.event_context.shift = false
+                        model.event_handler_context.shift = false
                     }
                     KeyPressed(event::Key::LControl | event::Key::RControl) => {
-                        model.event_context.control = true
+                        model.event_handler_context.control = true
                     }
                     KeyReleased(event::Key::LControl | event::Key::RControl) => {
-                        model.event_context.control = false
+                        model.event_handler_context.control = false
+                    }
+                    KeyReleased(event::Key::C) => {
+                        model.event_handler_context.center_on_vessel_mode = true
                     }
                     KeyPressed(..) => {}
                     KeyReleased(..) => {}
-                    ReceivedCharacter(_) => todo!(),
+                    ReceivedCharacter(_) => {}
                     MouseMoved(vec2) => {
-                        model.event_context.mouse_position = (vec2.x as i32, vec2.y as i32).into();
-                        model.event_context.mouse_position_in_world_space =
+                        model.event_handler_context.mouse_position =
+                            (vec2.x as i32, vec2.y as i32).into();
+                        model.event_handler_context.mouse_position_in_world_space =
                             &(!&model.camera.transformation()).unwrap()
-                                * &model.event_context.mouse_position.as_f32();
+                                * &model.event_handler_context.mouse_position.as_f32();
 
                         // model.cursor_pos = pt2(
                         //     mouse_position.x as f32 / window_scale_factor as f32 + window_rect.x.start,
@@ -63,19 +74,25 @@ pub fn event<R: rand::RngCore>(app: &App, model: &mut Model<R>, event: Event) {
 
                         if !model
                             .e0
-                            .update(model.event_context.mouse_position_in_world_space)
+                            .update(model.event_handler_context.mouse_position_in_world_space)
                         {
                             model
                                 .e1
-                                .update(model.event_context.mouse_position_in_world_space);
+                                .update(model.event_handler_context.mouse_position_in_world_space);
                         }
                     }
                     MousePressed(button) => {
                         return;
 
                         if model.e0.ellipse.eq()(
-                            *model.event_context.mouse_position_in_world_space.x() as f32,
-                            *model.event_context.mouse_position_in_world_space.y() as f32,
+                            *model
+                                .event_handler_context
+                                .mouse_position_in_world_space
+                                .x() as f32,
+                            *model
+                                .event_handler_context
+                                .mouse_position_in_world_space
+                                .y() as f32,
                         ) < 0.
                         {
                             match button {
@@ -86,8 +103,14 @@ pub fn event<R: rand::RngCore>(app: &App, model: &mut Model<R>, event: Event) {
                             }
                         }
                         if model.e1.ellipse.eq()(
-                            *model.event_context.mouse_position_in_world_space.x() as f32,
-                            *model.event_context.mouse_position_in_world_space.y() as f32,
+                            *model
+                                .event_handler_context
+                                .mouse_position_in_world_space
+                                .x() as f32,
+                            *model
+                                .event_handler_context
+                                .mouse_position_in_world_space
+                                .y() as f32,
                         ) < 0.
                         {
                             match button {
@@ -112,7 +135,9 @@ pub fn event<R: rand::RngCore>(app: &App, model: &mut Model<R>, event: Event) {
                         let delta_to_y = |a: MouseScrollDelta| -> f32 {
                             match a {
                                 MouseScrollDelta::LineDelta(_, y) => y,
-                                MouseScrollDelta::PixelDelta(physical_position) => todo!(),
+                                MouseScrollDelta::PixelDelta(physical_position) => {
+                                    physical_position.y as f32 / 10.
+                                }
                             }
                         };
 
@@ -127,17 +152,30 @@ pub fn event<R: rand::RngCore>(app: &App, model: &mut Model<R>, event: Event) {
                             return velocity * angle_delta;
                         };
 
-                        let position = model.event_context.mouse_position.as_f32();
+                        let position = model.event_handler_context.mouse_position.as_f32();
                         let y = delta_to_y(mouse_scroll_delta);
 
-                        if model.event_context.control {
+                        if model.event_handler_context.control {
                             // zoom
-                            model.camera.concat_scale_centered(
-                                angle_delta_to_scale_division(y),
-                                position,
-                                position,
-                            );
-                        } else if model.event_context.shift {
+                            if model.event_handler_context.center_on_vessel_mode {
+                                let t = model.e1.theta.degrees() / 360.;
+                                let target_point = model.e1.ellipse.point_on_ellipse(t);
+
+                                model.camera.concat_scale_centered(
+                                    angle_delta_to_scale_division(y),
+                                    target_point,
+                                    target_point,
+                                );
+
+                                return; // to prevent setting `center_on_vessel_mode` to false
+                            } else {
+                                model.camera.concat_scale_centered(
+                                    angle_delta_to_scale_division(y),
+                                    position,
+                                    position,
+                                );
+                            }
+                        } else if model.event_handler_context.shift {
                             // scroll horizontally
                             model
                                 .camera
@@ -148,6 +186,8 @@ pub fn event<R: rand::RngCore>(app: &App, model: &mut Model<R>, event: Event) {
                                 .camera
                                 .add_translation((0., angle_delta_to_translation_delta(y)).into());
                         }
+
+                        model.event_handler_context.center_on_vessel_mode = false
                     }
 
                     Resized { .. } => {}

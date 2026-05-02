@@ -190,6 +190,7 @@ pub fn draw_controls_info(draw: &Draw, bb: Rect<f32>) {
             "Move camera vertically: Wheel",
             "Move camera horisontally: Shift + Wheel",
             "Zoom in/out: Ctrl + Wheel",
+            "Center on vessel: C",
             "Turn left: A",
             "Turn right: D",
             "Throttle up: W",
