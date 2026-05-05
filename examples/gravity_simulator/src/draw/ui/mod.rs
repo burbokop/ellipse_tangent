@@ -3,7 +3,8 @@ use nannou::Draw;
 
 use crate::draw::ui::panels::{
     draw_controls_info, draw_flight_info, draw_manuever_info, draw_nav_circle, draw_throttle_bar,
-    FlightInfoData, ManueverInfoData, NavCircleData, ThrottleBarData,
+    draw_time_info, draw_vessel_info, FlightInfoData, ManueverInfoData, NavCircleData,
+    ThrottleBarData, TimeInfoData, VesselInfoData,
 };
 
 pub mod icons;
@@ -14,6 +15,8 @@ pub struct UIData {
     pub flight_info: FlightInfoData,
     pub manuever_info: ManueverInfoData,
     pub throttle_bar: ThrottleBarData,
+    pub vessel_info: VesselInfoData,
+    pub time_info: TimeInfoData,
 }
 
 pub(crate) fn draw_ui(draw: &Draw, window_rect: Rect<f32>, data: &UIData) {
@@ -30,6 +33,23 @@ pub(crate) fn draw_ui(draw: &Draw, window_rect: Rect<f32>, data: &UIData) {
         .into();
 
     draw_throttle_bar(draw, throttle_bar_bb, &data.throttle_bar);
+
+    let vessel_info_size: Size<_> = (200., 125.).into();
+    let vessel_info_left_margin = 30.;
+    let vessel_info_top_margin = 30.;
+
+    let vessel_info_bb = (
+        window_rect.left()
+            + throttle_bar_left_margin
+            + throttle_bar_size.w()
+            + vessel_info_left_margin,
+        window_rect.top() + vessel_info_top_margin,
+        *vessel_info_size.w(),
+        *vessel_info_size.h(),
+    )
+        .into();
+
+    draw_vessel_info(draw, vessel_info_bb, &data.vessel_info);
 
     let nav_circle_size: Size<_> = (125., 125.).into();
     let nav_circle_right_margin = 30.;
@@ -104,4 +124,18 @@ pub(crate) fn draw_ui(draw: &Draw, window_rect: Rect<f32>, data: &UIData) {
         .into();
 
     draw_controls_info(draw, controls_info_bb);
+
+    let time_info_size: Size<_> = (125., 40.).into();
+    let time_info_right_margin = 30.;
+    let time_info_bottom_margin = 30.;
+
+    let time_info_bb = (
+        window_rect.right() - time_info_size.w() - time_info_right_margin,
+        window_rect.bottom() - time_info_size.h() - time_info_bottom_margin,
+        *time_info_size.w(),
+        *time_info_size.h(),
+    )
+        .into();
+
+    draw_time_info(draw, time_info_bb, &data.time_info);
 }

@@ -14,6 +14,11 @@ pub struct EventHandlerContext {
     mouse_position: Point<i32>,
     mouse_position_in_world_space: Point<f32>,
     center_on_vessel_mode: bool,
+    w_pressed: bool,
+    a_pressed: bool,
+    s_pressed: bool,
+    d_pressed: bool,
+    x_pressed: bool,
 }
 
 impl Default for EventHandlerContext {
@@ -24,6 +29,11 @@ impl Default for EventHandlerContext {
             mouse_position: (0, 0).into(),
             mouse_position_in_world_space: (0., 0.).into(),
             center_on_vessel_mode: true,
+            w_pressed: false,
+            a_pressed: false,
+            s_pressed: false,
+            d_pressed: false,
+            x_pressed: false,
         }
     }
 }
@@ -31,6 +41,26 @@ impl Default for EventHandlerContext {
 impl EventHandlerContext {
     pub fn center_on_vessel_mode(&self) -> bool {
         self.center_on_vessel_mode
+    }
+
+    pub fn w_pressed(&self) -> bool {
+        self.w_pressed
+    }
+
+    pub fn a_pressed(&self) -> bool {
+        self.a_pressed
+    }
+
+    pub fn s_pressed(&self) -> bool {
+        self.s_pressed
+    }
+
+    pub fn d_pressed(&self) -> bool {
+        self.d_pressed
+    }
+
+    pub fn x_pressed(&self) -> bool {
+        self.x_pressed
     }
 }
 
@@ -57,6 +87,25 @@ pub fn event<R: rand::RngCore>(app: &App, model: &mut Model<R>, event: Event) {
                     KeyReleased(event::Key::C) => {
                         model.event_handler_context.center_on_vessel_mode = true
                     }
+                    KeyPressed(event::Key::W) => model.event_handler_context.w_pressed = true,
+                    KeyReleased(event::Key::W) => model.event_handler_context.w_pressed = false,
+                    KeyPressed(event::Key::A) => model.event_handler_context.a_pressed = true,
+                    KeyReleased(event::Key::A) => model.event_handler_context.a_pressed = false,
+                    KeyPressed(event::Key::S) => model.event_handler_context.s_pressed = true,
+                    KeyReleased(event::Key::S) => model.event_handler_context.s_pressed = false,
+                    KeyPressed(event::Key::D) => model.event_handler_context.d_pressed = true,
+                    KeyReleased(event::Key::D) => model.event_handler_context.d_pressed = false,
+                    KeyPressed(event::Key::X) => model.event_handler_context.x_pressed = true,
+                    KeyReleased(event::Key::X) => model.event_handler_context.x_pressed = false,
+                    KeyReleased(event::Key::Key1) => model.time_speed = 1.,
+                    KeyReleased(event::Key::Key2) => model.time_speed = 2.,
+                    KeyReleased(event::Key::Key3) => model.time_speed = 4.,
+                    KeyReleased(event::Key::Key4) => model.time_speed = 8.,
+                    KeyReleased(event::Key::Key5) => model.time_speed = 16.,
+                    KeyReleased(event::Key::Key6) => model.time_speed = 32.,
+                    KeyReleased(event::Key::Key7) => model.time_speed = 64.,
+                    KeyReleased(event::Key::Key8) => model.time_speed = 128.,
+                    KeyReleased(event::Key::Key9) => model.time_speed = 256.,
                     KeyPressed(..) => {}
                     KeyReleased(..) => {}
                     ReceivedCharacter(_) => {}

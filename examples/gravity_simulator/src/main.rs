@@ -1,8 +1,12 @@
 #![feature(const_default)]
 #![feature(const_trait_impl)]
 
-use burbomath::{camera::Camera, Complex, DeltaAngle, Matrix, Pi};
-use std::{marker::PhantomData, sync::LazyLock};
+use burbomath::{camera::Camera, Complex, DeltaAngle, Matrix, NonNeg, Pi};
+use std::{
+    marker::PhantomData,
+    sync::LazyLock,
+    time::{Duration, Instant},
+};
 
 mod draw;
 mod event_handler;
@@ -31,14 +35,14 @@ use crate::{
     draw::{
         scene::draw_scene,
         ui::{
-            draw_ui,
-            panels::{FlightInfoData, ManueverInfoData, NavCircleData, ThrottleBarData},
-            UIData,
+            UIData, draw_ui, panels::{
+                FlightInfoData, ManueverInfoData, NavCircleData, ThrottleBarData, TimeInfoData, VesselInfoData
+            }
         },
     },
     event_handler::EventHandlerContext,
     font_provider::FontProvider,
-    utils::{center_camera_around_a_point, nannou_rect_to_rect},
+    utils::nannou_rect_to_rect,
     vessel::{KinematicBody, Vessel},
 };
 
@@ -104,6 +108,7 @@ struct Model<R: rand::RngCore> {
     plot_magnification_change_axis_y: bool,
     camera: Camera<f32>,
     event_handler_context: EventHandlerContext,
+    time_speed: f32,
     _r: PhantomData<R>,
 }
 
@@ -173,8 +178,15 @@ fn model(app: &App) -> Model<impl rand::RngCore> {
         event_handler_context: Default::default(),
         _r: PhantomData::<ThreadRng>::default(),
         vessel: Vessel {
-            kinematic_body: KinematicBody::new(DeltaAngle::from_radians(0.01), 0.1, 1000.),
+            kinematic_body: KinematicBody::new(
+                DeltaAngle::from_radians(1.),
+                NonNeg::new(0.1).unwrap(),
+                NonNeg::new(0.1).unwrap(),
+                NonNeg::new(0.05).unwrap(),
+                NonNeg::new(1000.).unwrap(),
+            ),
         },
+        time_speed: 1.,
     }
 }
 
@@ -198,7 +210,12 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
         let theta1 = &mut model.e1.theta.degrees();
         let theta_auto_change = &mut settings.theta_auto_change;
         let time_speed = &mut settings.time_speed;
-        let dt = update.since_start.as_secs_f32() * *time_speed;
+        let time_since_start =
+            Duration::from_secs_f32(update.since_start.as_secs_f32() * *time_speed);
+
+        let dt = Duration::from_secs_f32(update.since_last.as_secs_f32() * *time_speed);
+
+        println!("dt: {}", dt.as_secs_f32());
 
         let e0_focal_len = (model.e0.ellipse.a.pow(2.) - model.e0.ellipse.b.pow(2.)).sqrt();
         let e1_focal_len = (model.e1.ellipse.a.pow(2.) - model.e1.ellipse.b.pow(2.)).sqrt();
@@ -206,11 +223,13 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
         let angular_velocity0 = model.e0.ellipse.angular_velocity(*theta0 / 360., M, G);
         let angular_velocity1 = model.e1.ellipse.angular_velocity(*theta1 / 360., M, G);
         if *theta_auto_change {
-            *theta0 += dt * angular_velocity0.degrees();
-            *theta1 += dt * angular_velocity1.degrees();
+            *theta0 += time_since_start.as_secs_f32() * angular_velocity0.degrees();
+            *theta1 += time_since_start.as_secs_f32() * angular_velocity1.degrees();
 
             if settings.thrust_acceleration > 0.
-                && (settings.delta_v_len - settings.thrust_acceleration * dt) >= 0.
+                && (settings.delta_v_len
+                    - settings.thrust_acceleration * time_since_start.as_secs_f32())
+                    >= 0.
             {
                 let acc = Vector::from_polar(
                     settings.thrust_acceleration,
@@ -218,10 +237,23 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
                 );
                 println!("acc: {:?}", acc);
 
-                model.e0.ellipse = model.e0.ellipse.accelerated(*theta0 / 360., M, G, dt, acc);
-                model.e1.ellipse = model.e1.ellipse.accelerated(*theta1 / 360., M, G, dt, acc);
+                model.e0.ellipse = model.e0.ellipse.accelerated(
+                    *theta0 / 360.,
+                    M,
+                    G,
+                    time_since_start.as_secs_f32(),
+                    acc,
+                );
+                model.e1.ellipse = model.e1.ellipse.accelerated(
+                    *theta1 / 360.,
+                    M,
+                    G,
+                    time_since_start.as_secs_f32(),
+                    acc,
+                );
 
-                settings.delta_v_len -= settings.thrust_acceleration * dt;
+                settings.delta_v_len -=
+                    settings.thrust_acceleration * time_since_start.as_secs_f32();
                 println!("settings.delta_v_len: {}", settings.delta_v_len);
             }
         }
@@ -229,14 +261,33 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
         if model.event_handler_context.center_on_vessel_mode() {
             let t = model.e1.theta.degrees() / 360.;
             let target_point = model.e1.ellipse.point_on_ellipse(t);
-            println!("AAAA: {:?}", target_point);
 
             let window_rect = nannou_rect_to_rect(app.window_rect());
 
             let window_center = window_rect.center();
 
-            center_camera_around_a_point(&mut model.camera, target_point, window_center);
+            model
+                .camera
+                .translate_to_target(target_point, window_center);
         }
+
+        if model.event_handler_context.w_pressed() {
+            model.vessel.kinematic_body.thrust_up(dt);
+        } else if model.event_handler_context.s_pressed() {
+            model.vessel.kinematic_body.thrust_down(dt);
+        } else {
+            model.vessel.kinematic_body.brake_thrust_change(dt);
+        }
+
+        if model.event_handler_context.x_pressed() {
+            model.vessel.kinematic_body.brake_rotation(dt);
+        } else if model.event_handler_context.a_pressed() {
+            model.vessel.kinematic_body.rotate_left(dt);
+        } else if model.event_handler_context.d_pressed() {
+            model.vessel.kinematic_body.rotate_right(dt);
+        }
+
+        model.vessel.kinematic_body.proceed(dt);
 
         egui::Window::new("Settings").show(&ctx, |ui| {
             // Scale slider
@@ -281,19 +332,25 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
 
 fn produce_ui_data<R: rand::RngCore>(model: &Model<R>) -> UIData {
     let throttle_bar_data = ThrottleBarData {
-        throttle: model.vessel.kinematic_body.thrust() / model.vessel.kinematic_body.max_thrust(),
+        throttle: model.vessel.kinematic_body.thrust().into_inner()
+            / model.vessel.kinematic_body.max_thrust().into_inner(),
     };
 
-    let t = model.e0.theta.degrees() / 360.;
-    let tangential_velocity = model.e0.ellipse.tangential_velocity(t, M, G);
+    let t = model.e1.theta.degrees() / 360.;
+    let tangential_velocity = model.e1.ellipse.tangential_velocity(t, M, G);
 
     let heading = model.vessel.kinematic_body.complex_heading();
 
+    let top_axis = !heading * Complex::from_cartesian(0., 1.);
+    let bottom_axis = top_axis * Complex::from_polar(1., Pi::pi());
+    let left_axis = top_axis * Complex::from_cartesian(0., -1.);
+    let right_axis = top_axis * Complex::from_cartesian(0., 1.);
+
     let nav_data = NavCircleData {
-        prograde: tangential_velocity * heading,
-        retrograde: tangential_velocity * heading * Complex::from_polar(1., Pi::pi()),
-        radial_in: tangential_velocity * heading * Complex::from_cartesian(0., 1.),
-        radial_out: tangential_velocity * heading * Complex::from_cartesian(0., -1.),
+        prograde: tangential_velocity * top_axis,
+        retrograde: tangential_velocity * bottom_axis,
+        radial_in: tangential_velocity * left_axis,
+        radial_out: tangential_velocity * right_axis,
         maneuver: (1., 1.).into(),
     };
 
@@ -310,11 +367,26 @@ fn produce_ui_data<R: rand::RngCore>(model: &Model<R>) -> UIData {
         time_to_next_transition_point: 1000.,
     };
 
+    let vessel_info_data = VesselInfoData {
+        thrust: model.vessel.kinematic_body.thrust().into_inner(),
+        mass: model.vessel.kinematic_body.mass().into_inner(),
+        todo1: 0.,
+        todo2: 0.,
+        todo3: 0.,
+        todo4: 0.,
+    };
+
+    let time_info_data = TimeInfoData {
+        time_speed: model.time_speed,
+    };
+
     UIData {
         nav_circle: nav_data,
         flight_info: flight_info_data,
         manuever_info: manuever_info_data,
         throttle_bar: throttle_bar_data,
+        vessel_info: vessel_info_data,
+        time_info:time_info_data,
     }
 }
 
