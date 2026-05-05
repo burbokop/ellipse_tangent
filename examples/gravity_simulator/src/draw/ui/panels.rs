@@ -1,6 +1,6 @@
 use burbomath::{Rect, Vector};
 use nannou::{
-    color::{Rgba8, WHITE},
+    color::{Rgba8, BLACK, RED, WHITE},
     Draw,
 };
 
@@ -49,6 +49,30 @@ pub fn draw_nav_circle(draw: &Draw, bb: Rect<f32>, data: &NavCircleData) {
         .points(
             (*bb.center().x(), bb.top()).into(),
             (*bb.center().x(), bb.bottom()).into(),
+        )
+        .color(palette::UI_STROKE_COLOR)
+        .weight(1.);
+
+    draw.line()
+        .points(
+            (*bb.center().x(), *bb.center().y()).into(),
+            (
+                *bb.center().x() + bb.w() / 8.,
+                *bb.center().y() - bb.h() / 8.,
+            )
+                .into(),
+        )
+        .color(palette::UI_STROKE_COLOR)
+        .weight(1.);
+
+    draw.line()
+        .points(
+            (*bb.center().x(), *bb.center().y()).into(),
+            (
+                *bb.center().x() - bb.w() / 8.,
+                *bb.center().y() - bb.h() / 8.,
+            )
+                .into(),
         )
         .color(palette::UI_STROKE_COLOR)
         .weight(1.);
@@ -173,6 +197,64 @@ pub fn draw_flight_info(draw: &Draw, bb: Rect<f32>, data: &FlightInfoData) {
     );
 }
 
+pub struct VesselInfoData {
+    pub thrust: f32,
+    pub mass: f32,
+    pub todo1: f32,
+    pub todo2: f32,
+    pub todo3: f32,
+    pub todo4: f32,
+}
+
+pub fn draw_vessel_info(draw: &Draw, bb: Rect<f32>, data: &VesselInfoData) {
+    draw.rect()
+        .x(*bb.center().x())
+        .y(*bb.center().y())
+        .w(*bb.w())
+        .h(*bb.h())
+        .color(palette::UI_BACKGROUND_COLOR)
+        .stroke_color(palette::UI_STROKE_COLOR)
+        .stroke_weight(1.);
+
+    let left_margin = 8.;
+    let row_count = 6;
+
+    let row_height = bb.h() / row_count as f32;
+    let draw_text = |index: usize, text: &str, color: Rgba8| {
+        draw.text(text)
+            .x_y(
+                left_margin + *bb.center().x(),
+                bb.y() + row_height / 2. + row_height * index as f32,
+            )
+            .w(*bb.w())
+            .h(row_height)
+            .font_size(12)
+            .left_justify()
+            .align_text_middle_y()
+            .color(color);
+    };
+
+    draw_text(
+        5,
+        &format!("Thrust: {:.2} N", data.thrust),
+        palette::PROGRADE_RETROGRADE_COLOR,
+    );
+
+    draw_text(
+        4,
+        &format!("Mass: {:.2} kg", data.mass),
+        palette::UI_STROKE_COLOR,
+    );
+
+    draw_text(3, &format!("todo1: {:.2}", data.todo1), RED.into());
+
+    draw_text(2, &format!("todo2: {:.2}", data.todo2), RED.into());
+
+    draw_text(1, &format!("todo3: {:.2}", data.todo3), RED.into());
+
+    draw_text(0, &format!("todo4: {:.2}", data.todo4), RED.into());
+}
+
 pub fn draw_controls_info(draw: &Draw, bb: Rect<f32>) {
     draw.rect()
         .x(*bb.center().x())
@@ -191,10 +273,9 @@ pub fn draw_controls_info(draw: &Draw, bb: Rect<f32>) {
             "Move camera horisontally: Shift + Wheel",
             "Zoom in/out: Ctrl + Wheel",
             "Center on vessel: C",
-            "Turn left: A",
-            "Turn right: D",
-            "Throttle up: W",
-            "Throttle down: S",
+            "Turn left/right: A/D",
+            "Stop rotation: X",
+            "Throttle up/down: W/S",
             "Enter/Exit manuever mode: M",
             "Add manuever prograde vel: Up arrow",
             "Add manuever retrograde vel: Down arrow",
@@ -281,4 +362,30 @@ pub fn draw_throttle_bar(draw: &Draw, bb: Rect<f32>, data: &ThrottleBarData) {
         .w(*fill_bb.w())
         .h(*fill_bb.h())
         .color(palette::PROGRADE_RETROGRADE_COLOR);
+}
+
+pub struct TimeInfoData {
+    pub time_speed: f32,
+}
+
+pub fn draw_time_info(draw: &Draw, bb: Rect<f32>, data: &TimeInfoData) {
+    draw.rect()
+        .x(*bb.center().x())
+        .y(*bb.center().y())
+        .w(*bb.w())
+        .h(*bb.h())
+        .color(palette::UI_BACKGROUND_COLOR)
+        .stroke_color(palette::UI_STROKE_COLOR)
+        .stroke_weight(1.);
+
+    let margin = 8.;
+
+    draw.text(&format!("Time speed: {}X", data.time_speed))
+        .x_y(*bb.center().x(), *bb.center().y())
+        .w(*bb.w() - 2. * margin)
+        .h(*bb.h() - 2. * margin)
+        .font_size(14)
+        .center_justify()
+        .align_text_middle_y()
+        .color(palette::MANEUVER_COLOR);
 }
