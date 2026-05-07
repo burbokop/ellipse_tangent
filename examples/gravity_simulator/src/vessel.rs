@@ -1,6 +1,12 @@
-use std::time::Duration;
+use core::f32;
+use std::{
+    f32::consts::PI,
+    ops::{Add, Div, Mul, Sub},
+    process::Output,
+    time::Duration,
+};
 
-use burbomath::{Angle, Complex, DeltaAngle, NonNeg, Vector, Zero};
+use burbomath::{Angle, Complex, DeltaAngle, NonNeg, Pi, Sq, Vector, Zero};
 use nannou::math::{partial_max, partial_min};
 
 pub struct ThrustControl {
@@ -131,6 +137,10 @@ impl KinematicBody {
         self.thrust() / self.mass
     }
 
+    pub(crate) fn acceleration_vector(&self) -> Vector<f32> {
+        Vector::from_polar(self.acceleration().into_inner(), self.rotation)
+    }
+
     pub(crate) fn heading(&self) -> Vector<f32> {
         Vector::from_polar(1., self.rotation)
     }
@@ -145,6 +155,72 @@ impl KinematicBody {
 
     pub(crate) fn rotate_right(&mut self, dt: Duration) {
         self.rotation_velocity -= self.rotation_acceleration * dt.as_secs_f32();
+    }
+
+    pub(crate) fn rotate_to(&mut self, target: Angle<f32>, dt: Duration) -> Angle<f32> {
+        let t = (-self.rotation_velocity.radians() / self.rotation_acceleration.radians()).abs();
+
+        // let t = t * dt.as_secs_f32();
+
+        let x_t = self.rotation_velocity * t + self.rotation_acceleration * t.sq() / 2.;
+
+        let dst = self.rotation.signed_distance(target);
+        let acceleration_multiplier = dst.radians().abs() / f32::consts::PI;
+
+        let r = map_range(
+            acceleration_multiplier,
+            0.,
+            1.,
+            self.rotation_velocity.abs(),
+            self.rotation_acceleration,
+        );
+
+        let r = partial_min(r, self.rotation_acceleration);
+
+        // if dst ~ 0 {
+        //     let desired_acceleration = -self.rotation_velocity;
+        // } else {
+        //     self.rotation_acceleration
+        // }
+
+        // println!(
+        //     "self.rotation_velocity: {:.2}, r: {:.2}",
+        //     self.rotation_velocity, r
+        // );
+
+        println!("< dst.abs(): {:.2}", dst.abs());
+
+        let acc = if dst.abs() > self.rotation_velocity.abs() {
+            if dst.degrees() > 0.01 {
+                -self.rotation_acceleration
+            } else if dst.degrees() < -0.01 {
+                self.rotation_acceleration
+            } else {
+                DeltaAngle::from_radians(0.)
+            }
+        } else {
+            let t = dst.abs().radians() / self.rotation_velocity.abs().radians();
+            let acc = dst.abs() / (t.sq() / 2.);
+            acc * (-self.rotation_velocity).radians().signum()
+        };
+
+        let acc = if acc > self.rotation_acceleration {
+            self.rotation_acceleration
+        } else if acc < -self.rotation_acceleration {
+            -self.rotation_acceleration
+        } else {
+            acc
+        };
+
+        self.rotation_velocity += acc * dt.as_secs_f32();
+
+        // if dst.degrees() > 0.1 {
+        //     self.rotation_velocity -= acc * dt.as_secs_f32();
+        // } else if dst.degrees() < -0.1 {
+        //     self.rotation_velocity += acc * dt.as_secs_f32();
+        // }
+
+        target
     }
 
     pub(crate) fn brake_rotation(&mut self, dt: Duration) {
@@ -177,4 +253,13 @@ impl KinematicBody {
     pub(crate) fn brake_thrust_change(&mut self, dt: Duration) {
         self.thrust_control.brake_thrust_change(dt);
     }
+}
+
+fn map_range<X, Y>(val: X, in_min: X, in_max: X, out_min: Y, out_max: Y) -> Y
+where
+    X: Sub<Output = X> + Div<Output = X> + Clone,
+    Y: Sub<Output = Y> + Mul<X, Output = Y> + Add<Output = Y> + Clone,
+{
+    let t: X = (val - in_min.clone()) / (in_max - in_min);
+    (out_max - out_min.clone()) * t + out_min
 }

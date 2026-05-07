@@ -1,8 +1,32 @@
+use std::time::Duration;
+
 use burbomath::{Angle, Point, Vector};
 use nannou::{
     color::{Rgba, Rgba8},
     Draw,
 };
+
+pub fn draw_flickering_circle(
+    draw: &Draw,
+    center: Point<f32>,
+    color: Rgba8,
+    radius: f32,
+    compensatory_scale: f32,
+    duration_since_start: Duration,
+) {
+    let alpha = ((duration_since_start.as_secs_f32() * 4.).cos() + 1.) / 2.;
+    draw.x(*center.x())
+        .y(*center.y())
+        .scale(compensatory_scale)
+        .ellipse()
+        .radius(radius)
+        .color(Rgba8::from_components((
+            color.red,
+            color.green,
+            color.blue,
+            (color.alpha as f32 * alpha) as u8,
+        )));
+}
 
 pub fn draw_prograde_icon(
     draw: &Draw,
@@ -10,6 +34,7 @@ pub fn draw_prograde_icon(
     color: Rgba8,
     radius: f32,
     compensatory_scale: f32,
+    _duration_since_start: Duration,
 ) {
     draw.x(*center.x())
         .y(*center.y())
@@ -28,12 +53,39 @@ pub fn draw_prograde_icon(
         .color(color);
 }
 
+pub fn draw_active_prograde_icon(
+    draw: &Draw,
+    center: Point<f32>,
+    color: Rgba8,
+    radius: f32,
+    compensatory_scale: f32,
+    duration_since_start: Duration,
+) {
+    draw_flickering_circle(
+        draw,
+        center,
+        color,
+        radius,
+        compensatory_scale,
+        duration_since_start,
+    );
+    draw_prograde_icon(
+        draw,
+        center,
+        color,
+        radius,
+        compensatory_scale,
+        duration_since_start,
+    )
+}
+
 pub fn draw_retrograde_icon(
     draw: &Draw,
     center: Point<f32>,
     color: Rgba8,
     radius: f32,
     compensatory_scale: f32,
+    _duration_since_start: Duration,
 ) {
     let radius_sqrt = (4. * radius).sqrt();
 
@@ -63,12 +115,40 @@ pub fn draw_retrograde_icon(
         .weight(1.);
 }
 
+pub fn draw_active_retrograde_icon(
+    draw: &Draw,
+    center: Point<f32>,
+    color: Rgba8,
+    radius: f32,
+    compensatory_scale: f32,
+    duration_since_start: Duration,
+) {
+    draw_flickering_circle(
+        draw,
+        center,
+        color,
+        radius,
+        compensatory_scale,
+        duration_since_start,
+    );
+
+    draw_retrograde_icon(
+        draw,
+        center,
+        color,
+        radius,
+        compensatory_scale,
+        duration_since_start,
+    )
+}
+
 pub fn draw_radial_in_icon(
     draw: &Draw,
     center: Point<f32>,
     color: Rgba8,
     radius: f32,
     compensatory_scale: f32,
+    _duration_since_start: Duration,
 ) {
     let radius_sqrt = (4. * radius).sqrt();
     let inner_radius_sqrt = (radius / 2.).sqrt();
@@ -131,12 +211,40 @@ pub fn draw_radial_in_icon(
         .weight(1.);
 }
 
+pub fn draw_active_radial_in_icon(
+    draw: &Draw,
+    center: Point<f32>,
+    color: Rgba8,
+    radius: f32,
+    compensatory_scale: f32,
+    duration_since_start: Duration,
+) {
+    draw_flickering_circle(
+        draw,
+        center,
+        color,
+        radius,
+        compensatory_scale,
+        duration_since_start,
+    );
+
+    draw_radial_in_icon(
+        draw,
+        center,
+        color,
+        radius,
+        compensatory_scale,
+        duration_since_start,
+    )
+}
+
 pub fn draw_radial_out_icon(
     draw: &Draw,
     center: Point<f32>,
     color: Rgba8,
     radius: f32,
     compensatory_scale: f32,
+    _duration_since_start: Duration,
 ) {
     let radius_sqrt = (4. * radius).sqrt();
     let outer_radius_sqrt = (8. * radius).sqrt();
@@ -206,12 +314,40 @@ pub fn draw_radial_out_icon(
         .weight(1.);
 }
 
+pub fn draw_active_radial_out_icon(
+    draw: &Draw,
+    center: Point<f32>,
+    color: Rgba8,
+    radius: f32,
+    compensatory_scale: f32,
+    duration_since_start: Duration,
+) {
+    draw_flickering_circle(
+        draw,
+        center,
+        color,
+        radius,
+        compensatory_scale,
+        duration_since_start,
+    );
+
+    draw_radial_out_icon(
+        draw,
+        center,
+        color,
+        radius,
+        compensatory_scale,
+        duration_since_start,
+    )
+}
+
 pub fn draw_maneuver_icon(
     draw: &Draw,
     center: Point<f32>,
     color: Rgba8,
     radius: f32,
     compensatory_scale: f32,
+    _duration_since_start: Duration,
 ) {
     // let radius_sqrt_x = (3_f32).sqrt() * 2. * radius;
     // let radius_sqrt_y = 1./2. * radius;
@@ -265,12 +401,40 @@ pub fn draw_maneuver_icon(
         .weight(1.);
 }
 
+pub fn draw_active_maneuver_icon(
+    draw: &Draw,
+    center: Point<f32>,
+    color: Rgba8,
+    radius: f32,
+    compensatory_scale: f32,
+    duration_since_start: Duration,
+) {
+    draw_flickering_circle(
+        draw,
+        center,
+        color,
+        radius,
+        compensatory_scale,
+        duration_since_start,
+    );
+
+    draw_maneuver_icon(
+        draw,
+        center,
+        color,
+        radius,
+        compensatory_scale,
+        duration_since_start,
+    )
+}
+
 pub fn draw_heading_icon(
     draw: &Draw,
     center: Point<f32>,
     color: Rgba8,
     radius: f32,
     compensatory_scale: f32,
+    _duration_since_start: Duration,
 ) {
     draw.x(*center.x())
         .y(*center.y())

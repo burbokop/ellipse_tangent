@@ -8,12 +8,23 @@ use nannou::{
     text::Font,
 };
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum AutoRotationTarget {
+    Prograde,
+    Retrograde,
+    RadialIn,
+    RadialOut,
+    Maneuver,
+}
+
 pub struct EventHandlerContext {
     control: bool,
     shift: bool,
+    alt: bool,
     mouse_position: Point<i32>,
     mouse_position_in_world_space: Point<f32>,
     center_on_vessel_mode: bool,
+    auto_rotation_mode: Option<AutoRotationTarget>,
     w_pressed: bool,
     a_pressed: bool,
     s_pressed: bool,
@@ -24,11 +35,13 @@ pub struct EventHandlerContext {
 impl Default for EventHandlerContext {
     fn default() -> Self {
         Self {
-            control: Default::default(),
-            shift: Default::default(),
+            control: false,
+            shift: false,
+            alt: false,
             mouse_position: (0, 0).into(),
             mouse_position_in_world_space: (0., 0.).into(),
             center_on_vessel_mode: true,
+            auto_rotation_mode: None,
             w_pressed: false,
             a_pressed: false,
             s_pressed: false,
@@ -41,6 +54,10 @@ impl Default for EventHandlerContext {
 impl EventHandlerContext {
     pub fn center_on_vessel_mode(&self) -> bool {
         self.center_on_vessel_mode
+    }
+
+    pub fn auto_rotation_mode(&self) -> Option<AutoRotationTarget> {
+        self.auto_rotation_mode
     }
 
     pub fn w_pressed(&self) -> bool {
@@ -67,36 +84,53 @@ impl EventHandlerContext {
 pub fn event<R: rand::RngCore>(app: &App, model: &mut Model<R>, event: Event) {
     match event {
         Event::WindowEvent { id, simple } => {
-            let w = app.window(id).unwrap();
+            // let w = app.window(id).unwrap();
+            let ctx = &mut model.event_handler_context;
 
             match simple {
                 Some(e) => match e {
-                    Moved(vec2) => todo!(),
-                    KeyPressed(event::Key::LShift | event::Key::RShift) => {
-                        model.event_handler_context.shift = true
+                    Moved(_vec2) => todo!(),
+                    KeyPressed(event::Key::LShift | event::Key::RShift) => ctx.shift = true,
+                    KeyReleased(event::Key::LShift | event::Key::RShift) => ctx.shift = false,
+                    KeyPressed(event::Key::LControl | event::Key::RControl) => ctx.control = true,
+                    KeyReleased(event::Key::LControl | event::Key::RControl) => ctx.control = false,
+                    KeyPressed(event::Key::LAlt | event::Key::RAlt) => ctx.alt = true,
+                    KeyReleased(event::Key::LAlt | event::Key::RAlt) => ctx.alt = false,
+                    KeyReleased(event::Key::C) => ctx.center_on_vessel_mode = true,
+                    KeyPressed(event::Key::Up) if ctx.alt => {
+                        ctx.auto_rotation_mode = Some(AutoRotationTarget::Prograde)
                     }
-                    KeyReleased(event::Key::LShift | event::Key::RShift) => {
-                        model.event_handler_context.shift = false
+                    KeyPressed(event::Key::Down) if ctx.alt => {
+                        ctx.auto_rotation_mode = Some(AutoRotationTarget::Retrograde)
                     }
-                    KeyPressed(event::Key::LControl | event::Key::RControl) => {
-                        model.event_handler_context.control = true
+                    KeyPressed(event::Key::Left) if ctx.alt => {
+                        ctx.auto_rotation_mode = Some(AutoRotationTarget::RadialOut)
                     }
-                    KeyReleased(event::Key::LControl | event::Key::RControl) => {
-                        model.event_handler_context.control = false
+                    KeyPressed(event::Key::Right) if ctx.alt => {
+                        ctx.auto_rotation_mode = Some(AutoRotationTarget::RadialIn)
                     }
-                    KeyReleased(event::Key::C) => {
-                        model.event_handler_context.center_on_vessel_mode = true
+                    KeyPressed(event::Key::M) if ctx.alt => {
+                        ctx.auto_rotation_mode = Some(AutoRotationTarget::Maneuver)
                     }
-                    KeyPressed(event::Key::W) => model.event_handler_context.w_pressed = true,
-                    KeyReleased(event::Key::W) => model.event_handler_context.w_pressed = false,
-                    KeyPressed(event::Key::A) => model.event_handler_context.a_pressed = true,
-                    KeyReleased(event::Key::A) => model.event_handler_context.a_pressed = false,
-                    KeyPressed(event::Key::S) => model.event_handler_context.s_pressed = true,
-                    KeyReleased(event::Key::S) => model.event_handler_context.s_pressed = false,
-                    KeyPressed(event::Key::D) => model.event_handler_context.d_pressed = true,
-                    KeyReleased(event::Key::D) => model.event_handler_context.d_pressed = false,
-                    KeyPressed(event::Key::X) => model.event_handler_context.x_pressed = true,
-                    KeyReleased(event::Key::X) => model.event_handler_context.x_pressed = false,
+                    KeyPressed(event::Key::W) => ctx.w_pressed = true,
+                    KeyReleased(event::Key::W) => ctx.w_pressed = false,
+                    KeyPressed(event::Key::A) => {
+                        ctx.a_pressed = true;
+                        ctx.auto_rotation_mode = None
+                    }
+                    KeyReleased(event::Key::A) => ctx.a_pressed = false,
+                    KeyPressed(event::Key::S) => ctx.s_pressed = true,
+                    KeyReleased(event::Key::S) => ctx.s_pressed = false,
+                    KeyPressed(event::Key::D) => {
+                        ctx.d_pressed = true;
+                        ctx.auto_rotation_mode = None
+                    }
+                    KeyReleased(event::Key::D) => ctx.d_pressed = false,
+                    KeyPressed(event::Key::X) => {
+                        ctx.x_pressed = true;
+                        ctx.auto_rotation_mode = None
+                    }
+                    KeyReleased(event::Key::X) => ctx.x_pressed = false,
                     KeyReleased(event::Key::Key1) => model.time_speed = 1.,
                     KeyReleased(event::Key::Key2) => model.time_speed = 2.,
                     KeyReleased(event::Key::Key3) => model.time_speed = 4.,
@@ -110,30 +144,24 @@ pub fn event<R: rand::RngCore>(app: &App, model: &mut Model<R>, event: Event) {
                     KeyReleased(..) => {}
                     ReceivedCharacter(_) => {}
                     MouseMoved(vec2) => {
-                        model.event_handler_context.mouse_position =
-                            (vec2.x as i32, vec2.y as i32).into();
-                        model.event_handler_context.mouse_position_in_world_space =
-                            &(!&model.camera.transformation()).unwrap()
-                                * &model.event_handler_context.mouse_position.as_f32();
+                        ctx.mouse_position = (vec2.x as i32, vec2.y as i32).into();
+                        ctx.mouse_position_in_world_space = &(!&model.camera.transformation())
+                            .unwrap()
+                            * &ctx.mouse_position.as_f32();
 
                         // model.cursor_pos = pt2(
                         //     mouse_position.x as f32 / window_scale_factor as f32 + window_rect.x.start,
                         //     -mouse_position.y as f32 / window_scale_factor as f32 - window_rect.y.start,
                         // );
 
-                        if !model
-                            .e0
-                            .update(model.event_handler_context.mouse_position_in_world_space)
-                        {
-                            model
-                                .e1
-                                .update(model.event_handler_context.mouse_position_in_world_space);
+                        if !model.old_stuff.e0.update(ctx.mouse_position_in_world_space) {
+                            model.old_stuff.e1.update(ctx.mouse_position_in_world_space);
                         }
                     }
                     MousePressed(button) => {
                         return;
 
-                        if model.e0.ellipse.eq()(
+                        if model.old_stuff.e0.ellipse.eq()(
                             *model
                                 .event_handler_context
                                 .mouse_position_in_world_space
@@ -145,38 +173,40 @@ pub fn event<R: rand::RngCore>(app: &App, model: &mut Model<R>, event: Event) {
                         ) < 0.
                         {
                             match button {
-                                MouseButton::Left => model.e0.is_grabbed_to_move = true,
-                                MouseButton::Right => model.e0.is_grabbed_to_rotate = true,
-                                MouseButton::Middle => model.e0.is_grabbed_to_scale = true,
+                                MouseButton::Left => model.old_stuff.e0.is_grabbed_to_move = true,
+                                MouseButton::Right => {
+                                    model.old_stuff.e0.is_grabbed_to_rotate = true
+                                }
+                                MouseButton::Middle => {
+                                    model.old_stuff.e0.is_grabbed_to_scale = true
+                                }
                                 _ => {}
                             }
                         }
-                        if model.e1.ellipse.eq()(
-                            *model
-                                .event_handler_context
-                                .mouse_position_in_world_space
-                                .x() as f32,
-                            *model
-                                .event_handler_context
-                                .mouse_position_in_world_space
-                                .y() as f32,
+                        if model.old_stuff.e1.ellipse.eq()(
+                            *ctx.mouse_position_in_world_space.x() as f32,
+                            *ctx.mouse_position_in_world_space.y() as f32,
                         ) < 0.
                         {
                             match button {
-                                MouseButton::Left => model.e1.is_grabbed_to_move = true,
-                                MouseButton::Right => model.e1.is_grabbed_to_rotate = true,
-                                MouseButton::Middle => model.e1.is_grabbed_to_scale = true,
+                                MouseButton::Left => model.old_stuff.e1.is_grabbed_to_move = true,
+                                MouseButton::Right => {
+                                    model.old_stuff.e1.is_grabbed_to_rotate = true
+                                }
+                                MouseButton::Middle => {
+                                    model.old_stuff.e1.is_grabbed_to_scale = true
+                                }
                                 _ => {}
                             }
                         }
                     }
                     MouseReleased(mouse_button) => {
-                        model.e0.is_grabbed_to_move = false;
-                        model.e0.is_grabbed_to_rotate = false;
-                        model.e0.is_grabbed_to_scale = false;
-                        model.e1.is_grabbed_to_move = false;
-                        model.e1.is_grabbed_to_rotate = false;
-                        model.e1.is_grabbed_to_scale = false;
+                        model.old_stuff.e0.is_grabbed_to_move = false;
+                        model.old_stuff.e0.is_grabbed_to_rotate = false;
+                        model.old_stuff.e0.is_grabbed_to_scale = false;
+                        model.old_stuff.e1.is_grabbed_to_move = false;
+                        model.old_stuff.e1.is_grabbed_to_rotate = false;
+                        model.old_stuff.e1.is_grabbed_to_scale = false;
                     }
                     MouseEntered => {}
                     MouseExited => {}
@@ -201,14 +231,17 @@ pub fn event<R: rand::RngCore>(app: &App, model: &mut Model<R>, event: Event) {
                             return velocity * angle_delta;
                         };
 
-                        let position = model.event_handler_context.mouse_position.as_f32();
+                        let position = ctx.mouse_position.as_f32();
                         let y = delta_to_y(mouse_scroll_delta);
 
-                        if model.event_handler_context.control {
+                        if ctx.control {
                             // zoom
-                            if model.event_handler_context.center_on_vessel_mode {
-                                let t = model.e1.theta.degrees() / 360.;
-                                let target_point = model.e1.ellipse.point_on_ellipse(t);
+                            if ctx.center_on_vessel_mode {
+                                let target_point = model
+                                    .old_stuff
+                                    .e1
+                                    .ellipse
+                                    .point_on_ellipse(model.vessel_orbit.anomaly);
 
                                 model.camera.concat_scale_centered(
                                     angle_delta_to_scale_division(y),
@@ -224,7 +257,7 @@ pub fn event<R: rand::RngCore>(app: &App, model: &mut Model<R>, event: Event) {
                                     position,
                                 );
                             }
-                        } else if model.event_handler_context.shift {
+                        } else if ctx.shift {
                             // scroll horizontally
                             model
                                 .camera
@@ -236,7 +269,7 @@ pub fn event<R: rand::RngCore>(app: &App, model: &mut Model<R>, event: Event) {
                                 .add_translation((0., angle_delta_to_translation_delta(y)).into());
                         }
 
-                        model.event_handler_context.center_on_vessel_mode = false
+                        ctx.center_on_vessel_mode = false
                     }
 
                     Resized { .. } => {}

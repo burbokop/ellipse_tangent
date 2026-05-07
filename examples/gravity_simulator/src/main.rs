@@ -1,17 +1,15 @@
 #![feature(const_default)]
 #![feature(const_trait_impl)]
 
-use burbomath::{camera::Camera, Complex, DeltaAngle, Matrix, NonNeg, Pi};
-use std::{
-    marker::PhantomData,
-    sync::LazyLock,
-    time::{Duration, Instant},
-};
+use burbomath::{camera::Camera, physics::Kg, Complex, DeltaAngle, Matrix, NonNeg, Pi};
+use core::f32;
+use std::{marker::PhantomData, rc::Rc, sync::LazyLock, time::Duration};
 
 mod draw;
 mod event_handler;
 mod font_provider;
 mod md_array;
+mod orbit;
 mod palette;
 mod plot;
 mod utils;
@@ -35,13 +33,17 @@ use crate::{
     draw::{
         scene::draw_scene,
         ui::{
-            UIData, draw_ui, panels::{
-                FlightInfoData, ManueverInfoData, NavCircleData, ThrottleBarData, TimeInfoData, VesselInfoData
-            }
+            draw_ui,
+            panels::{
+                FlightInfoData, ManueverInfoData, NavCircleData, ThrottleBarData, TimeInfoData,
+                VesselInfoData,
+            },
+            UIData,
         },
     },
-    event_handler::EventHandlerContext,
+    event_handler::{AutoRotationTarget, EventHandlerContext},
     font_provider::FontProvider,
+    orbit::{CelestialBody, EllipticOrbit},
     utils::nannou_rect_to_rect,
     vessel::{KinematicBody, Vessel},
 };
@@ -49,7 +51,6 @@ use crate::{
 static FP: LazyLock<FontProvider> = LazyLock::new(|| FontProvider::new());
 static FONT: LazyLock<Font> = LazyLock::new(|| FP.font());
 
-const M: f32 = 1000_000_000_000.; // kg
 const G: f32 = 6.67430e-11; // m3 * kg^(−1) * s^(−2);
 const PALLETE: [u32; 5] = [0xff230D4A, 0xff7678ED, 0xffF7B801, 0xffF18701, 0xffF35B04];
 
@@ -95,20 +96,28 @@ struct Windows {
     // plot_window: WindowId,
 }
 
-struct Model<R: rand::RngCore> {
-    vessel: Vessel,
+struct OldStuff {
     e0: EllipseState,
     e1: EllipseState,
     common_tangents: Vec<(Line, TangentDirection)>,
     settings: Settings,
-    egui: Egui,
     image: DynamicImage,
-    windows: Windows,
     plot_magnification: (f32, f32),
     plot_magnification_change_axis_y: bool,
+    dst_angle: Angle<f32>,
+}
+
+struct Model<R: rand::RngCore> {
+    egui: Egui,
+    windows: Windows,
+    vessel: Vessel,
+    body: Rc<CelestialBody>,
+    vessel_orbit: EllipticOrbit,
     camera: Camera<f32>,
     event_handler_context: EventHandlerContext,
     time_speed: f32,
+
+    old_stuff: OldStuff,
     _r: PhantomData<R>,
 }
 
@@ -140,53 +149,67 @@ fn model(app: &App) -> Model<impl rand::RngCore> {
 
     let ellipse1 = Ellipse::new(-30., -100., 100., 70., deg_to_rad(0.));
 
+    let body = Rc::new(CelestialBody {
+        mass: Kg(1000_000_000_000.),
+    });
+
     Model {
-        e0: EllipseState {
-            ellipse: ellipse0,
-            theta: Angle::from_radians(0.),
-            is_grabbed_to_move: false,
-            is_grabbed_to_rotate: false,
-            is_grabbed_to_scale: false,
-        },
-        e1: EllipseState {
-            ellipse: ellipse1,
-            theta: Angle::from_radians(0.),
-            is_grabbed_to_move: false,
-            is_grabbed_to_rotate: false,
-            is_grabbed_to_scale: false,
-        },
-        common_tangents: vec![],
-        settings: Settings {
-            delta_v_angle: 0.,
-            delta_v_len: 1.,
-            theta_auto_change: true,
-            thrust_acceleration: 0.,
-            time_speed: 0.001,
-        },
         egui,
-        image: DynamicImage::ImageRgba8(RgbaImage::new(
-            window.rect().w() as u32,
-            window.rect().h() as u32,
-        )),
         windows: Windows {
             main_window: main_window_id,
             // plot_window: plot_window_id,
         },
-        plot_magnification: (1., 1.),
-        plot_magnification_change_axis_y: false,
-        camera: Camera::default(),
-        event_handler_context: Default::default(),
-        _r: PhantomData::<ThreadRng>::default(),
         vessel: Vessel {
             kinematic_body: KinematicBody::new(
                 DeltaAngle::from_radians(1.),
-                NonNeg::new(0.1).unwrap(),
-                NonNeg::new(0.1).unwrap(),
-                NonNeg::new(0.05).unwrap(),
+                NonNeg::new(0.1 * 10000.).unwrap(),
+                NonNeg::new(0.1 * 10000.).unwrap(),
+                NonNeg::new(0.05 * 10000.).unwrap(),
                 NonNeg::new(1000.).unwrap(),
             ),
         },
+        body: body.clone(),
+        vessel_orbit: EllipticOrbit {
+            body: Rc::downgrade(&body),
+            ellipse: ellipse1.clone(),
+            anomaly: Angle::from_radians(0.),
+        },
+        camera: Camera::default(),
+        event_handler_context: Default::default(),
         time_speed: 1.,
+        old_stuff: OldStuff {
+            e0: EllipseState {
+                ellipse: ellipse0,
+                theta: Angle::from_radians(0.),
+                is_grabbed_to_move: false,
+                is_grabbed_to_rotate: false,
+                is_grabbed_to_scale: false,
+            },
+            e1: EllipseState {
+                ellipse: ellipse1,
+                theta: Angle::from_radians(0.),
+                is_grabbed_to_move: false,
+                is_grabbed_to_rotate: false,
+                is_grabbed_to_scale: false,
+            },
+            common_tangents: vec![],
+            settings: Settings {
+                delta_v_angle: 0.,
+                delta_v_len: 1.,
+                theta_auto_change: true,
+                thrust_acceleration: 0.,
+                time_speed: 0.001,
+            },
+            image: DynamicImage::ImageRgba8(RgbaImage::new(
+                window.rect().w() as u32,
+                window.rect().h() as u32,
+            )),
+
+            plot_magnification: (1., 1.),
+            plot_magnification_change_axis_y: false,
+            dst_angle: Angle::from_radians(0.),
+        },
+        _r: PhantomData::<ThreadRng>::default(),
     }
 }
 
@@ -202,26 +225,36 @@ fn raw_window_event<R: rand::RngCore>(
 fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
     {
         let egui = &mut model.egui;
-        let settings = &mut model.settings;
+        let settings = &mut model.old_stuff.settings;
         egui.set_elapsed_time(update.since_start);
         let ctx = egui.begin_frame();
 
-        let theta0 = &mut model.e0.theta.degrees();
-        let theta1 = &mut model.e1.theta.degrees();
+        let theta0 = &mut model.old_stuff.e0.theta.degrees();
+        let theta1 = &mut model.old_stuff.e1.theta.degrees();
+
         let theta_auto_change = &mut settings.theta_auto_change;
+
         let time_speed = &mut settings.time_speed;
         let time_since_start =
             Duration::from_secs_f32(update.since_start.as_secs_f32() * *time_speed);
 
-        let dt = Duration::from_secs_f32(update.since_last.as_secs_f32() * *time_speed);
+        let dt = Duration::from_secs_f32(update.since_last.as_secs_f32() * model.time_speed);
 
-        println!("dt: {}", dt.as_secs_f32());
+        let e0_focal_len =
+            (model.old_stuff.e0.ellipse.a.pow(2.) - model.old_stuff.e0.ellipse.b.pow(2.)).sqrt();
+        let e1_focal_len =
+            (model.old_stuff.e1.ellipse.a.pow(2.) - model.old_stuff.e1.ellipse.b.pow(2.)).sqrt();
 
-        let e0_focal_len = (model.e0.ellipse.a.pow(2.) - model.e0.ellipse.b.pow(2.)).sqrt();
-        let e1_focal_len = (model.e1.ellipse.a.pow(2.) - model.e1.ellipse.b.pow(2.)).sqrt();
-
-        let angular_velocity0 = model.e0.ellipse.angular_velocity(*theta0 / 360., M, G);
-        let angular_velocity1 = model.e1.ellipse.angular_velocity(*theta1 / 360., M, G);
+        let angular_velocity0 = model.old_stuff.e0.ellipse.angular_velocity(
+            Angle::from_degrees(*theta0),
+            model.body.mass.clone(),
+            G,
+        );
+        let angular_velocity1 = model.old_stuff.e1.ellipse.angular_velocity(
+            Angle::from_degrees(*theta1),
+            model.body.mass.clone(),
+            G,
+        );
         if *theta_auto_change {
             *theta0 += time_since_start.as_secs_f32() * angular_velocity0.degrees();
             *theta1 += time_since_start.as_secs_f32() * angular_velocity1.degrees();
@@ -237,18 +270,18 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
                 );
                 println!("acc: {:?}", acc);
 
-                model.e0.ellipse = model.e0.ellipse.accelerated(
-                    *theta0 / 360.,
-                    M,
+                model.old_stuff.e0.ellipse = model.old_stuff.e0.ellipse.accelerated(
+                    Angle::from_degrees(*theta0),
+                    model.body.mass.clone(),
                     G,
-                    time_since_start.as_secs_f32(),
+                    time_since_start,
                     acc,
                 );
-                model.e1.ellipse = model.e1.ellipse.accelerated(
-                    *theta1 / 360.,
-                    M,
+                model.old_stuff.e1.ellipse = model.old_stuff.e1.ellipse.accelerated(
+                    Angle::from_degrees(*theta1),
+                    model.body.mass.clone(),
                     G,
-                    time_since_start.as_secs_f32(),
+                    time_since_start,
                     acc,
                 );
 
@@ -259,11 +292,11 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
         }
 
         if model.event_handler_context.center_on_vessel_mode() {
-            let t = model.e1.theta.degrees() / 360.;
-            let target_point = model.e1.ellipse.point_on_ellipse(t);
-
+            let target_point = model
+                .vessel_orbit
+                .ellipse
+                .point_on_ellipse(model.vessel_orbit.anomaly);
             let window_rect = nannou_rect_to_rect(app.window_rect());
-
             let window_center = window_rect.center();
 
             model
@@ -279,55 +312,100 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
             model.vessel.kinematic_body.brake_thrust_change(dt);
         }
 
+        let tangential_velocity = model
+            .vessel_orbit
+            .ellipse
+            .tangential_velocity(
+                model.vessel_orbit.anomaly,
+                model.vessel_orbit.body.upgrade().unwrap().mass.clone(),
+                G,
+            )
+            .norm();
+
         if model.event_handler_context.x_pressed() {
             model.vessel.kinematic_body.brake_rotation(dt);
         } else if model.event_handler_context.a_pressed() {
             model.vessel.kinematic_body.rotate_left(dt);
         } else if model.event_handler_context.d_pressed() {
             model.vessel.kinematic_body.rotate_right(dt);
+        } else if let Some(auto_rotation_mode) = model.event_handler_context.auto_rotation_mode() {
+            model.old_stuff.dst_angle = match auto_rotation_mode {
+                AutoRotationTarget::Prograde => model
+                    .vessel
+                    .kinematic_body
+                    .rotate_to(tangential_velocity.angle(), dt),
+                AutoRotationTarget::Retrograde => model
+                    .vessel
+                    .kinematic_body
+                    .rotate_to(tangential_velocity.angle() + DeltaAngle::<f32>::pi(), dt),
+                AutoRotationTarget::RadialIn => model.vessel.kinematic_body.rotate_to(
+                    tangential_velocity.angle() - DeltaAngle::<f32>::pi() / 2.,
+                    dt,
+                ),
+                AutoRotationTarget::RadialOut => model.vessel.kinematic_body.rotate_to(
+                    tangential_velocity.angle() + DeltaAngle::<f32>::pi() / 2.,
+                    dt,
+                ),
+                AutoRotationTarget::Maneuver => model
+                    .vessel
+                    .kinematic_body
+                    .rotate_to(Angle::from_radians(f32::consts::PI / 4.), dt),
+            }
         }
 
         model.vessel.kinematic_body.proceed(dt);
 
-        egui::Window::new("Settings").show(&ctx, |ui| {
-            // Scale slider
-            ui.label(format!("E0: {:.2?}", &model.e0.ellipse));
-            ui.label(format!("E1: {:.2?}", &model.e1.ellipse));
+        if model.vessel.kinematic_body.acceleration().into_inner() > f32::EPSILON {
+            model
+                .vessel_orbit
+                .accelerate(model.vessel.kinematic_body.acceleration_vector(), dt);
+        }
 
-            ui.label(format!("ω0: {:.2?}°", &angular_velocity0.degrees()));
-            ui.label(format!("ω1: {:.2?}°", &angular_velocity1.degrees()));
-            ui.label("θ0:");
-            ui.add(egui::Slider::new(theta0, (0.)..=360.).step_by(1.));
-            ui.label("θ1:");
-            ui.add(egui::Slider::new(theta1, (0.)..=360.).step_by(1.));
+        model.vessel_orbit.proceed(dt);
 
-            ui.label("Δv θ:");
-            ui.add(egui::Slider::new(&mut settings.delta_v_angle, (0.)..=360.));
-            ui.label("|Δv|:");
-            ui.add(egui::Slider::new(&mut settings.delta_v_len, 0. ..=1.).step_by(0.01));
-            ui.label("ta:");
-            ui.add(
-                egui::Slider::new(&mut settings.thrust_acceleration, 0. ..=0.01).step_by(0.0001),
-            );
+        // egui::Window::new("Settings").show(&ctx, |ui| {
+        //     // Scale slider
+        //     ui.label(format!("E0: {:.2?}", &model.old_stuff.e0.ellipse));
+        //     ui.label(format!("E1: {:.2?}", &model.old_stuff.e1.ellipse));
 
-            if ui
-                .button(if *theta_auto_change { "Stop" } else { "Auto" })
-                .clicked()
-            {
-                *theta_auto_change = !*theta_auto_change;
-            }
+        //     ui.label(format!("ω0: {:.2?}°", &angular_velocity0.degrees()));
+        //     ui.label(format!("ω1: {:.2?}°", &angular_velocity1.degrees()));
+        //     ui.label("θ0:");
+        //     ui.add(egui::Slider::new(theta0, (0.)..=360.).step_by(1.));
+        //     ui.label("θ1:");
+        //     ui.add(egui::Slider::new(theta1, (0.)..=360.).step_by(1.));
 
-            if *theta_auto_change {
-                ui.label("time speed:");
-                ui.add(egui::Slider::new(time_speed, (0.)..=0.001).step_by(0.00001));
-            }
-        });
+        //     ui.label("Δv θ:");
+        //     ui.add(egui::Slider::new(&mut settings.delta_v_angle, (0.)..=360.));
+        //     ui.label("|Δv|:");
+        //     ui.add(egui::Slider::new(&mut settings.delta_v_len, 0. ..=1.).step_by(0.01));
+        //     ui.label("ta:");
+        //     ui.add(
+        //         egui::Slider::new(&mut settings.thrust_acceleration, 0. ..=0.01).step_by(0.0001),
+        //     );
 
-        model.e0.theta = Angle::from_degrees(*theta0);
-        model.e1.theta = Angle::from_degrees(*theta1);
+        //     if ui
+        //         .button(if *theta_auto_change { "Stop" } else { "Auto" })
+        //         .clicked()
+        //     {
+        //         *theta_auto_change = !*theta_auto_change;
+        //     }
+
+        //     if *theta_auto_change {
+        //         ui.label("time speed:");
+        //         ui.add(egui::Slider::new(time_speed, (0.)..=0.001).step_by(0.00001));
+        //     }
+        // });
+
+        model.old_stuff.e0.theta = Angle::from_degrees(*theta0);
+        model.old_stuff.e1.theta = Angle::from_degrees(*theta1);
     }
 
-    model.common_tangents = model.e0.ellipse.common_tangents(&model.e1.ellipse);
+    model.old_stuff.common_tangents = model
+        .old_stuff
+        .e0
+        .ellipse
+        .common_tangents(&model.old_stuff.e1.ellipse);
 }
 
 fn produce_ui_data<R: rand::RngCore>(model: &Model<R>) -> UIData {
@@ -336,8 +414,13 @@ fn produce_ui_data<R: rand::RngCore>(model: &Model<R>) -> UIData {
             / model.vessel.kinematic_body.max_thrust().into_inner(),
     };
 
-    let t = model.e1.theta.degrees() / 360.;
-    let tangential_velocity = model.e1.ellipse.tangential_velocity(t, M, G);
+    let t = model.old_stuff.e1.theta.degrees() / 360.;
+    let tangential_velocity = model
+        .old_stuff
+        .e1
+        .ellipse
+        .tangential_velocity(model.vessel_orbit.anomaly, model.body.mass.clone(), G)
+        .norm();
 
     let heading = model.vessel.kinematic_body.complex_heading();
 
@@ -352,6 +435,8 @@ fn produce_ui_data<R: rand::RngCore>(model: &Model<R>) -> UIData {
         radial_in: tangential_velocity * left_axis,
         radial_out: tangential_velocity * right_axis,
         maneuver: (1., 1.).into(),
+        auto_rotation_mode: model.event_handler_context.auto_rotation_mode(),
+        auto_rotation_target: Vector::from_polar(1., model.old_stuff.dst_angle) * top_axis,
     };
 
     let manuever_info_data = ManueverInfoData {
@@ -360,8 +445,8 @@ fn produce_ui_data<R: rand::RngCore>(model: &Model<R>) -> UIData {
 
     let flight_info_data = FlightInfoData {
         velocity: tangential_velocity.len(),
-        apoapsis: 10000.,
-        periapsis: 2000.,
+        apoapsis: model.vessel_orbit.ellipse.apoapsis(),
+        periapsis: model.vessel_orbit.ellipse.periapsis(),
         delta_v_capacity: 100.,
         delta_v_needed_for_manuever: 100.,
         time_to_next_transition_point: 1000.,
@@ -369,8 +454,8 @@ fn produce_ui_data<R: rand::RngCore>(model: &Model<R>) -> UIData {
 
     let vessel_info_data = VesselInfoData {
         thrust: model.vessel.kinematic_body.thrust().into_inner(),
+        thrust_acceleration: model.vessel.kinematic_body.acceleration().into_inner(),
         mass: model.vessel.kinematic_body.mass().into_inner(),
-        todo1: 0.,
         todo2: 0.,
         todo3: 0.,
         todo4: 0.,
@@ -386,14 +471,14 @@ fn produce_ui_data<R: rand::RngCore>(model: &Model<R>) -> UIData {
         manuever_info: manuever_info_data,
         throttle_bar: throttle_bar_data,
         vessel_info: vessel_info_data,
-        time_info:time_info_data,
+        time_info: time_info_data,
     }
 }
 
 fn view<R: rand::RngCore>(app: &App, model: &Model<R>, frame: Frame) {
     let draw = app.draw();
 
-    draw_scene(&draw, model);
+    draw_scene(&draw, model, app.duration.since_start);
 
     // let win = app.window(model.windows.main_window).unwrap();
     // let window_size = win.inner_size_pixels();
@@ -403,7 +488,7 @@ fn view<R: rand::RngCore>(app: &App, model: &Model<R>, frame: Frame) {
 
     let ui_data = produce_ui_data(model);
 
-    draw_ui(&draw, window_rect, &ui_data);
+    draw_ui(&draw, window_rect, &ui_data, app.duration.since_start);
 
     draw.to_frame(app, &frame).unwrap();
     model.egui.draw_to_frame(&frame).unwrap();
