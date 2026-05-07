@@ -1,4 +1,4 @@
-use std::{f32::consts::PI, ops::Deref as _};
+use std::{f32::consts::PI, ops::Deref as _, time::Duration};
 
 use burbomath::{Angle, Complex, Point, Vector};
 use ellipse_tangent::{ellipse::Ellipse, line::Line};
@@ -111,11 +111,19 @@ pub fn draw_vector(
 
 pub fn draw_vector_with_icon<C>(
     draw: &Draw,
-    icon: fn(&Draw, center: Point<f32>, color: C, radius: f32, compensatory_scale: f32),
+    icon: fn(
+        &Draw,
+        center: Point<f32>,
+        color: C,
+        radius: f32,
+        compensatory_scale: f32,
+        duration_since_start: Duration,
+    ),
     position: Point<f32>,
     vec: Vector<f32>,
     color: C,
     compensatory_scale: f32,
+    duration_since_start: Duration,
 ) where
     C: IntoLinSrgba<ColorScalar> + Clone,
 {
@@ -144,6 +152,7 @@ pub fn draw_vector_with_icon<C>(
             color,
             icon_radius / compensatory_scale,
             compensatory_scale,
+            duration_since_start,
         );
     }
 }

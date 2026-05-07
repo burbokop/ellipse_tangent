@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use burbomath::{Rect, Size};
 use nannou::Draw;
 
@@ -19,7 +21,12 @@ pub struct UIData {
     pub time_info: TimeInfoData,
 }
 
-pub(crate) fn draw_ui(draw: &Draw, window_rect: Rect<f32>, data: &UIData) {
+pub(crate) fn draw_ui(
+    draw: &Draw,
+    window_rect: Rect<f32>,
+    data: &UIData,
+    duration_since_start: Duration,
+) {
     let throttle_bar_size: Size<_> = (50., 125.).into();
     let throttle_bar_left_margin = 30.;
     let throttle_bar_top_margin = 30.;
@@ -63,7 +70,12 @@ pub(crate) fn draw_ui(draw: &Draw, window_rect: Rect<f32>, data: &UIData) {
     )
         .into();
 
-    draw_nav_circle(draw, nav_circle_bb.clone(), &data.nav_circle);
+    draw_nav_circle(
+        draw,
+        nav_circle_bb.clone(),
+        &data.nav_circle,
+        duration_since_start,
+    );
 
     let manuever_info_size: Size<_> = (300., 125.).into();
     let manuever_info_right_margin = 30.;

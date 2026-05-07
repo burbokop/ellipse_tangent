@@ -1,9 +1,10 @@
 use burbomath::{
     Angle, Complex, DeltaAngle, Point, SignedSq as _, SignedSqrt as _, Sq as _, Vector, lerp,
+    physics::Kg,
 };
 use num_traits::Pow as _;
 use rustnomial::Polynomial;
-use std::f32::consts::PI;
+use std::{f32::consts::PI, time::Duration};
 
 use crate::{line::Line, utils::notmalize_array_around_one};
 
@@ -180,6 +181,23 @@ impl Ellipse {
         }
     }
 
+    /// Focal point 1. Returns x, y of the point
+    pub fn f1(&self) -> Point<f32> {
+        if self.a.abs() > self.b.abs() {
+            let major_axis = absmax(self.a, self.b);
+            let minor_axis = absmin(self.a, self.b);
+            let focal_len = (major_axis.pow(2.) - minor_axis.pow(2.)).sqrt();
+
+            self.into_ws((0., -focal_len).into())
+        } else {
+            let major_axis = absmax(self.a, self.b);
+            let minor_axis = absmin(self.a, self.b);
+            let focal_len = (major_axis.pow(2.) - minor_axis.pow(2.)).sqrt();
+
+            self.into_ws((-focal_len, 0.).into())
+        }
+    }
+
     pub fn perimeter(&self) -> f32 {
         let h = (self.a - self.b).sq() / (self.a + self.b).sq();
         PI * (self.a + self.b) * (1. + 3. * h / (10. + (4. - 3. * h).sqrt()))
@@ -213,57 +231,64 @@ impl Ellipse {
         }
     }
 
-    /// Focal point 1. Returns x, y of the point
-    pub fn f1(&self) -> Point<f32> {
+    pub fn radius(&self, anomaly: Angle<f32>) -> f32 {
+        let a = self.a;
+        let b = self.b;
+        a * b / f32::sqrt((b * anomaly.cos()).pow(2.) + (a * anomaly.sin()).pow(2.))
+    }
+
+    pub fn apoapsis(&self) -> f32 {
         if self.a.abs() > self.b.abs() {
-            let major_axis = absmax(self.a, self.b);
-            let minor_axis = absmin(self.a, self.b);
-            let focal_len = (major_axis.pow(2.) - minor_axis.pow(2.)).sqrt();
-
-            self.into_ws((0., -focal_len).into())
+            let focal_len = (self.a.pow(2.) - self.b.pow(2.)).sqrt();
+            self.a.abs() + focal_len
         } else {
-            let major_axis = absmax(self.a, self.b);
-            let minor_axis = absmin(self.a, self.b);
-            let focal_len = (major_axis.pow(2.) - minor_axis.pow(2.)).sqrt();
-
-            self.into_ws((-focal_len, 0.).into())
+            let focal_len = (self.b.pow(2.) - self.a.pow(2.)).sqrt();
+            self.b.abs() + focal_len
         }
     }
 
-    pub(crate) fn radius(&self, t: f32) -> f32 {
-        let a = self.a;
-        let b = self.b;
-        a * b / f32::sqrt((b * f32::cos(t * 2. * PI)).pow(2.) + (a * f32::sin(t * 2. * PI)).pow(2.))
+    pub fn periapsis(&self) -> f32 {
+        if self.a.abs() > self.b.abs() {
+            let focal_len = (self.a.pow(2.) - self.b.pow(2.)).sqrt();
+            self.a.abs() - focal_len
+        } else {
+            let focal_len = (self.b.pow(2.) - self.a.pow(2.)).sqrt();
+            self.b.abs() - focal_len
+        }
     }
 
-    pub fn point_on_ellipse(&self, t: f32) -> Point<f32> {
-        // let radius = self.radius(t);
-
-        self.into_ws(
-            (
-                self.b.abs() * f32::sin(t * 2. * PI),
-                self.a.abs() * f32::cos(t * 2. * PI),
-            )
-                .into(),
-        )
+    pub fn point_on_ellipse(&self, anomaly: Angle<f32>) -> Point<f32> {
+        self.into_ws((self.b.abs() * anomaly.sin(), self.a.abs() * anomaly.cos()).into())
     }
 
-    pub fn acc(&self, t: f32, M: f32, G: f32) -> Vector<f32> {
-        let vec = self.f0() - self.point_on_ellipse(t);
+    pub fn acc(
+        &self,
+        anomaly: Angle<f32>,
+        central_body_mass: Kg<f32>,
+        gravitational_constant: f32,
+    ) -> Vector<f32> {
+        let vec = self.f0() - self.point_on_ellipse(anomaly);
         let vec_len = vec.len();
-        vec * M * G / vec_len.pow(3.)
+        vec * central_body_mass.0 * gravitational_constant / vec_len.pow(3.)
     }
 
-    pub fn tangential_velocity(&self, t: f32, M: f32, G: f32) -> Vector<f32> {
+    pub fn tangential_velocity(
+        &self,
+        anomaly: Angle<f32>,
+        central_body_mass: Kg<f32>,
+        gravitational_constant: f32,
+    ) -> Vector<f32> {
         // let p = self.point_on_ellipse(t);
         // let center = (self.x, self.y);
 
-        let vec = self.f0() - self.point_on_ellipse(t);
+        let vec = self.f0() - self.point_on_ellipse(anomaly);
         let vec_len = vec.len();
 
         // let radius = self.radius(t);
         // println!("radius: {}", radius);
-        let velocity_module = f32::sqrt(G * M * (2. / vec_len - 1. / self.a.abs()));
+        let velocity_module = f32::sqrt(
+            gravitational_constant * central_body_mass.0 * (2. / vec_len - 1. / self.a.abs()),
+        );
 
         // let tangent = (
         //     radius*f32::sin(t * 2. * PI),
@@ -275,35 +300,42 @@ impl Ellipse {
         let vel = Vector::from((
             // radius * f32::sin(t * 2. * PI + PI/2.),
             // radius * f32::cos(t * 2. * PI + PI/2.),
-            self.b.abs() * f32::cos(t * 2. * PI),
-            self.a.abs() * -f32::sin(t * 2. * PI),
+            self.b.abs() * anomaly.cos(),
+            self.a.abs() * -anomaly.sin(),
         )) * self.rotation();
 
         vel.norm() * velocity_module
     }
 
-    pub fn angular_velocity(&self, t: f32, M: f32, G: f32) -> DeltaAngle<f32> {
-        let p = self.point_on_ellipse(t);
+    pub fn angular_velocity(
+        &self,
+        anomaly: Angle<f32>,
+        central_body_mass: Kg<f32>,
+        gravitational_constant: f32,
+    ) -> DeltaAngle<f32> {
+        let p = self.point_on_ellipse(anomaly);
         let f0 = self.f0();
         let r = (p - f0).len();
-        let v = self.tangential_velocity(t, M, G).len();
+        let v = self
+            .tangential_velocity(anomaly, central_body_mass, gravitational_constant)
+            .len();
 
         DeltaAngle::from_radians(v / r)
     }
 
     pub fn f1_from_tangential_velocity(
         &self,
-        t: f32,
-        M: f32,
-        G: f32,
+        anomaly: Angle<f32>,
+        central_body_mass: Kg<f32>,
+        gravitational_constant: f32,
         vel: Vector<f32>,
     ) -> (Vector<f32>, Point<f32>) {
-        let p = self.point_on_ellipse(t);
+        let p = self.point_on_ellipse(anomaly);
         let f0 = self.f0();
 
         let _r = p - f0;
         let _v = vel;
-        let _mu = M * G;
+        let _mu = central_body_mass.0 * gravitational_constant;
         let _r_len = _r.len();
         let _v_len = _v.len();
         let _h = _r.cross(_v);
@@ -318,23 +350,25 @@ impl Ellipse {
     /// Change ellipse in the way that f0, and position in `t` stays the same and velocity in `t` changeds to `vel`
     pub fn set_tangential_velicity(
         &self,
-        t: f32,
-        M: f32,
-        G: f32,
+        anomaly: Angle<f32>,
+        central_body_mass: Kg<f32>,
+        gravitational_constant: f32,
         vel: Vector<f32>,
     ) -> (f32, f32, f32) {
         // consts
-        let p = self.point_on_ellipse(t);
+        let p = self.point_on_ellipse(anomaly);
         let f0 = self.f0();
         let vec_to_focus = f0 - p;
         #[allow(unused)]
         let vec_to_focus_len = vec_to_focus.len();
         #[allow(unused)]
-        let th = t * 2. * PI;
+        let th = anomaly.radians();
         #[allow(unused)]
         let velocity_module = vel.len();
         #[allow(unused)]
-        let q = 1. / (4. / vec_to_focus_len - velocity_module.pow(2.) / G / M);
+        let q = 1.
+            / (4. / vec_to_focus_len
+                - velocity_module.pow(2.) / gravitational_constant / central_body_mass.0);
         // ------
 
         // #[allow(unused)]
@@ -476,12 +510,24 @@ impl Ellipse {
         // todo!()
     }
 
-    pub fn accelerated(&self, t: f32, M: f32, G: f32, delta_t: f32, acc: Vector<f32>) -> Ellipse {
+    pub fn accelerated(
+        &self,
+        anomaly: Angle<f32>,
+        central_body_mass: Kg<f32>,
+        gravitational_constant: f32,
+        dt: Duration,
+        acc: Vector<f32>,
+    ) -> Ellipse {
         let f0 = self.f0();
-        let p = self.point_on_ellipse(t);
-        let vel = self.tangential_velocity(t, M, G);
-        let delta_v = acc * delta_t;
-        let (_, new_f1) = self.f1_from_tangential_velocity(t, M, G, vel + delta_v);
+        let p = self.point_on_ellipse(anomaly);
+        let vel =
+            self.tangential_velocity(anomaly, central_body_mass.clone(), gravitational_constant);
+        let (_, new_f1) = self.f1_from_tangential_velocity(
+            anomaly,
+            central_body_mass,
+            gravitational_constant,
+            vel + acc * dt.as_secs_f32(),
+        );
         Ellipse::from_foci(f0, new_f1, p)
     }
 

@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use burbomath::{Rect, Vector};
 use nannou::{
     color::{Rgba8, BLACK, RED, WHITE},
@@ -8,10 +10,13 @@ use crate::{
     draw::{
         common::draw_vector_with_icon,
         ui::icons::{
+            draw_active_maneuver_icon, draw_active_prograde_icon, draw_active_radial_in_icon,
+            draw_active_radial_out_icon, draw_active_retrograde_icon, draw_heading_icon,
             draw_maneuver_icon, draw_prograde_icon, draw_radial_in_icon, draw_radial_out_icon,
             draw_retrograde_icon,
         },
     },
+    event_handler::AutoRotationTarget,
     palette,
 };
 
@@ -21,9 +26,16 @@ pub struct NavCircleData {
     pub radial_in: Vector<f32>,
     pub radial_out: Vector<f32>,
     pub maneuver: Vector<f32>,
+    pub auto_rotation_mode: Option<AutoRotationTarget>,
+    pub auto_rotation_target: Vector<f32>,
 }
 
-pub fn draw_nav_circle(draw: &Draw, bb: Rect<f32>, data: &NavCircleData) {
+pub fn draw_nav_circle(
+    draw: &Draw,
+    bb: Rect<f32>,
+    data: &NavCircleData,
+    duration_since_start: Duration,
+) {
     let center = bb.center();
 
     draw.ellipse()
@@ -77,49 +89,86 @@ pub fn draw_nav_circle(draw: &Draw, bb: Rect<f32>, data: &NavCircleData) {
         .color(palette::UI_STROKE_COLOR)
         .weight(1.);
 
+    if data.auto_rotation_mode != None {
+        draw_vector_with_icon(
+            draw,
+            draw_heading_icon,
+            center,
+            data.auto_rotation_target.norm() * radius,
+            palette::UI_STROKE_COLOR,
+            1.,
+            duration_since_start,
+        );
+    }
+
     draw_vector_with_icon(
         draw,
-        draw_prograde_icon,
+        if data.auto_rotation_mode == Some(AutoRotationTarget::Prograde) {
+            draw_active_prograde_icon
+        } else {
+            draw_prograde_icon
+        },
         center,
         data.prograde.norm() * radius,
         palette::PROGRADE_RETROGRADE_COLOR,
         1.,
+        duration_since_start,
     );
 
     draw_vector_with_icon(
         draw,
-        draw_retrograde_icon,
+        if data.auto_rotation_mode == Some(AutoRotationTarget::Retrograde) {
+            draw_active_retrograde_icon
+        } else {
+            draw_retrograde_icon
+        },
         center,
         data.retrograde.norm() * radius,
         palette::PROGRADE_RETROGRADE_COLOR,
         1.,
+        duration_since_start,
     );
 
     draw_vector_with_icon(
         draw,
-        draw_radial_in_icon,
+        if data.auto_rotation_mode == Some(AutoRotationTarget::RadialIn) {
+            draw_active_radial_in_icon
+        } else {
+            draw_radial_in_icon
+        },
         center,
         data.radial_in.norm() * radius,
         palette::RADIAL_COLOR,
         1.,
+        duration_since_start,
     );
 
     draw_vector_with_icon(
         draw,
-        draw_radial_out_icon,
+        if data.auto_rotation_mode == Some(AutoRotationTarget::RadialOut) {
+            draw_active_radial_out_icon
+        } else {
+            draw_radial_out_icon
+        },
         center,
         data.radial_out.norm() * radius,
         palette::RADIAL_COLOR,
         1.,
+        duration_since_start,
     );
 
     draw_vector_with_icon(
         draw,
-        draw_maneuver_icon,
+        if data.auto_rotation_mode == Some(AutoRotationTarget::Maneuver) {
+            draw_active_maneuver_icon
+        } else {
+            draw_maneuver_icon
+        },
         center,
         data.maneuver.norm() * radius,
         palette::MANEUVER_COLOR,
         1.,
+        duration_since_start,
     );
 }
 
@@ -199,8 +248,8 @@ pub fn draw_flight_info(draw: &Draw, bb: Rect<f32>, data: &FlightInfoData) {
 
 pub struct VesselInfoData {
     pub thrust: f32,
+    pub thrust_acceleration: f32,
     pub mass: f32,
-    pub todo1: f32,
     pub todo2: f32,
     pub todo3: f32,
     pub todo4: f32,
@@ -242,11 +291,15 @@ pub fn draw_vessel_info(draw: &Draw, bb: Rect<f32>, data: &VesselInfoData) {
 
     draw_text(
         4,
+        &format!("Thrust acceleration: {:.2} m/c^2", data.thrust_acceleration),
+        palette::PROGRADE_RETROGRADE_COLOR,
+    );
+
+    draw_text(
+        3,
         &format!("Mass: {:.2} kg", data.mass),
         palette::UI_STROKE_COLOR,
     );
-
-    draw_text(3, &format!("todo1: {:.2}", data.todo1), RED.into());
 
     draw_text(2, &format!("todo2: {:.2}", data.todo2), RED.into());
 
@@ -276,11 +329,15 @@ pub fn draw_controls_info(draw: &Draw, bb: Rect<f32>) {
             "Turn left/right: A/D",
             "Stop rotation: X",
             "Throttle up/down: W/S",
+            "Auto rotate to prograde vel: Alt + Up arrow",
+            "Auto rotate to retrograde vel: Alt + Down arrow",
+            "Auto rotate to radial out vel: Alt + Left arrow",
+            "Auto rotate to radial in vel: Alt + Right arrow",
             "Enter/Exit manuever mode: M",
             "Add manuever prograde vel: Up arrow",
             "Add manuever retrograde vel: Down arrow",
-            "Add manuever radial in vel: Left arrow",
-            "Add manuever radial out vel: Right arrow",
+            "Add manuever radial out vel: Left arrow",
+            "Add manuever radial in vel: Right arrow",
         ]
         .join("\n"),
     )

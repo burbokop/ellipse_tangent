@@ -249,7 +249,7 @@ checksum = "5d20789868f4b01b2f2caec9f5c4e0213b41e3e5702a50157d699ae31ced2fcb"
 [[package]]
 name = "burbomath"
 version = "0.0.1"
-source = "git+https://github.com/burbokop/burbomath.git#763d2d4bead6074ef7a88221a6fd5731f8f6d096"
+source = "git+https://github.com/burbokop/burbomath.git#fe36b2e1b8a60a645af688303640f18322d0949b"
 dependencies = [
  "burbomath_macro",
  "rand 0.9.4",
@@ -259,7 +259,7 @@ dependencies = [
 [[package]]
 name = "burbomath_macro"
 version = "0.0.1"
-source = "git+https://github.com/burbokop/burbomath.git#763d2d4bead6074ef7a88221a6fd5731f8f6d096"
+source = "git+https://github.com/burbokop/burbomath.git#fe36b2e1b8a60a645af688303640f18322d0949b"
 dependencies = [
  "litrs",
  "proc-macro2",

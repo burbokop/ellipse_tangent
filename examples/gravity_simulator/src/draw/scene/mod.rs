@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::{
     draw::{
         common::{draw_fading_ellipse, draw_vector, draw_vector_with_icon},
@@ -6,9 +8,9 @@ use crate::{
     palette,
     utils::{color_from_hex, matrix_to_mat4},
     vessel::Vessel,
-    Model, G, M, PALLETE,
+    Model, G, PALLETE,
 };
-use burbomath::{Angle, Vector};
+use burbomath::{physics::Kg, Angle, Vector};
 use ellipse_tangent::ellipse::Ellipse;
 use nannou::{
     color::{Alpha, Rgb, BLACK, BLUEVIOLET, CYAN, MAGENTA, RED, YELLOW},
@@ -23,6 +25,8 @@ fn draw_ellipse(
     delta_v: Vector<f32>,
     name: &str,
     compensatory_scale: f32,
+    celestial_body_mass: Kg<f32>,
+    duration_since_start: Duration,
 ) {
     // draw.ellipse()
     //     .x(ellipse.x)
@@ -59,7 +63,7 @@ fn draw_ellipse(
         .radius(focal_point_size)
         .color(BLUEVIOLET);
 
-    let p = ellipse.point_on_ellipse(t);
+    let p = ellipse.point_on_ellipse(Angle::from_degrees(t * 360.));
     draw.x(*p.x())
         .y(*p.y())
         .scale(compensatory_scale)
@@ -67,8 +71,16 @@ fn draw_ellipse(
         .radius(focal_point_size)
         .color(CYAN);
 
-    let acc = ellipse.acc(t, M, G);
-    let vel = ellipse.tangential_velocity(t, M, G);
+    let acc = ellipse.acc(
+        Angle::from_degrees(t * 360.),
+        celestial_body_mass.clone(),
+        G,
+    );
+    let vel = ellipse.tangential_velocity(
+        Angle::from_degrees(t * 360.),
+        celestial_body_mass.clone(),
+        G,
+    );
 
     draw_vector_with_icon(
         draw,
@@ -77,6 +89,7 @@ fn draw_ellipse(
         vessel.kinematic_body.heading(),
         palette::UI_STROKE_COLOR,
         compensatory_scale,
+        duration_since_start,
     );
 
     draw_vector_with_icon(
@@ -86,12 +99,18 @@ fn draw_ellipse(
         vel,
         palette::PROGRADE_RETROGRADE_COLOR,
         compensatory_scale,
+        duration_since_start,
     );
 
     draw_vector(draw, "a", p, acc, PALLETE[3], compensatory_scale);
     draw_vector(draw, "Δv", p + vel, delta_v, PALLETE[4], compensatory_scale);
 
-    let (_excentricity, new_f1) = ellipse.f1_from_tangential_velocity(t, M, G, vel + delta_v);
+    let (_excentricity, new_f1) = ellipse.f1_from_tangential_velocity(
+        Angle::from_degrees(t * 360.),
+        celestial_body_mass.clone(),
+        G,
+        vel + delta_v,
+    );
 
     if new_f1.x().is_finite()
         && new_f1.y().is_finite()
@@ -152,7 +171,7 @@ fn draw_ellipse(
         compensatory_scale,
     );
 
-    let new_p = new_ellipse.point_on_ellipse(new_t);
+    let new_p = new_ellipse.point_on_ellipse(Angle::from_degrees(new_t * 360.));
     draw.x(*new_p.x())
         .y(*new_p.y())
         .scale(compensatory_scale)
@@ -166,37 +185,55 @@ fn draw_ellipse(
         .stroke_color(RED);
 }
 
-pub(crate) fn draw_scene<R: rand::RngCore>(draw: &Draw, model: &Model<R>) {
+pub(crate) fn draw_scene<R: rand::RngCore>(
+    draw: &Draw,
+    model: &Model<R>,
+    duration_since_start: Duration,
+) {
     let draw = draw.transform(matrix_to_mat4(model.camera.transformation()));
 
     draw.background().color(color_from_hex(PALLETE[0]));
 
     let delta_v = Vector::from_polar(
-        model.settings.delta_v_len,
-        Angle::from_degrees(model.settings.delta_v_angle),
+        model.old_stuff.settings.delta_v_len,
+        Angle::from_degrees(model.old_stuff.settings.delta_v_angle),
     );
 
     let compensatory_scale = 1. / model.camera.transformation().average_scale();
 
     draw_ellipse(
         &draw,
-        &model.e0.ellipse,
+        &model.vessel_orbit.ellipse,
         &model.vessel,
-        model.e0.theta.degrees() / 360.,
+        model.vessel_orbit.anomaly.degrees() / 360.,
         delta_v,
-        "e0",
+        "body",
         compensatory_scale,
+        model.body.mass.clone(),
+        duration_since_start,
     );
 
-    draw_ellipse(
-        &draw,
-        &model.e1.ellipse,
-        &model.vessel,
-        model.e1.theta.degrees() / 360.,
-        delta_v,
-        "e1",
-        compensatory_scale,
-    );
+    // draw_ellipse(
+    //     &draw,
+    //     &model.old_stuff.e0.ellipse,
+    //     &model.vessel,
+    //     model.old_stuff.e0.theta.degrees() / 360.,
+    //     delta_v,
+    //     "e0",
+    //     compensatory_scale,
+    //     model.body.mass.clone(),
+    // );
+
+    // draw_ellipse(
+    //     &draw,
+    //     &model.old_stuff.e1.ellipse,
+    //     &model.vessel,
+    //     model.old_stuff.e1.theta.degrees() / 360.,
+    //     delta_v,
+    //     "e1",
+    //     compensatory_scale,
+    //     model.body.mass.clone(),
+    // );
 
     //let texture = wgpu::Texture::from_image(app, &model.image);
 
