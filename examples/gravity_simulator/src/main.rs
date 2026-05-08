@@ -4,6 +4,7 @@
 mod draw;
 mod event_handler;
 mod font_provider;
+mod manuever;
 mod md_array;
 mod orbit;
 mod palette;
@@ -17,14 +18,15 @@ use crate::{
         ui::{
             draw_ui,
             panels::{
-                FlightInfoData, ManueverInfoData, NavCircleData, ThrottleBarData, TimeInfoData,
-                VesselInfoData,
+                ControlsInfoData, FlightInfoData, ManueverInfoData, NavCircleData, ThrottleBarData,
+                TimeInfoData, VesselInfoData,
             },
             UIData,
         },
     },
     event_handler::{AutoRotationTarget, EventHandlerContext},
     font_provider::FontProvider,
+    manuever::Manuever,
     orbit::{CelestialBody, EllipticOrbit},
     utils::nannou_rect_to_rect,
     vessel::{KinematicBody, Vessel},
@@ -113,6 +115,7 @@ struct Model<R: rand::RngCore> {
     vessel: Vessel,
     body: Rc<CelestialBody>,
     vessel_orbit: EllipticOrbit,
+    manuever: Option<Manuever>,
     camera: Camera<f32>,
     event_handler_context: EventHandlerContext,
     time_speed: f32,
@@ -178,6 +181,7 @@ fn model(app: &App) -> Model<impl rand::RngCore> {
             ellipse: ellipse1.clone(),
             anomaly: Angle::from_radians(0.),
         },
+        manuever: None,
         camera: Camera::default(),
         event_handler_context: Default::default(),
         time_speed: 1.,
@@ -366,6 +370,24 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
 
         model.vessel_orbit.proceed(dt);
 
+        if model.event_handler_context.manuever_planner_mode() {
+            if let Some(manuever) = &mut model.manuever {
+                if model.event_handler_context.less_pressed() {
+                    manuever.move_start_anomaly_backward(&model.vessel_orbit, dt, G);
+                } else if model.event_handler_context.greater_pressed() {
+                    manuever.move_start_anomaly_forward(&model.vessel_orbit, dt, G);
+                } else if model.event_handler_context.left_arrow_pressed() {
+                    manuever.accelerate_towards_radial_out(&model.vessel_orbit, dt, G);
+                } else if model.event_handler_context.right_arrow_pressed() {
+                    manuever.accelerate_towards_radial_in(&model.vessel_orbit, dt, G);
+                } else if model.event_handler_context.up_arrow_pressed() {
+                    manuever.accelerate_towards_prograde(&model.vessel_orbit, dt, G);
+                } else if model.event_handler_context.down_arrow_pressed() {
+                    manuever.accelerate_towards_retrograde(&model.vessel_orbit, dt, G);
+                }
+            }
+        }
+
         // egui::Window::new("Settings").show(&ctx, |ui| {
         //     // Scale slider
         //     ui.label(format!("E0: {:.2?}", &model.old_stuff.e0.ellipse));
@@ -435,12 +457,16 @@ fn produce_ui_data<R: rand::RngCore>(model: &Model<R>) -> UIData {
         retrograde: tangential_velocity * bottom_axis,
         radial_in: tangential_velocity * left_axis,
         radial_out: tangential_velocity * right_axis,
-        maneuver: (1., 1.).into(),
+        maneuver: if model.event_handler_context.manuever_planner_mode() {
+            Some((1., 1.).into())
+        } else {
+            None
+        },
         auto_rotation_mode: model.event_handler_context.auto_rotation_mode(),
     };
 
     let manuever_info_data = ManueverInfoData {
-        manuever_mode: false,
+        manuever_mode: model.event_handler_context.manuever_planner_mode(),
     };
 
     let flight_info_data = FlightInfoData {
@@ -465,6 +491,10 @@ fn produce_ui_data<R: rand::RngCore>(model: &Model<R>) -> UIData {
         time_speed: model.time_speed,
     };
 
+    let controls_info_data = ControlsInfoData {
+        manuever_mode: model.event_handler_context.manuever_planner_mode(),
+    };
+
     UIData {
         nav_circle: nav_data,
         flight_info: flight_info_data,
@@ -472,6 +502,7 @@ fn produce_ui_data<R: rand::RngCore>(model: &Model<R>) -> UIData {
         throttle_bar: throttle_bar_data,
         vessel_info: vessel_info_data,
         time_info: time_info_data,
+        controls_info: controls_info_data,
     }
 }
 

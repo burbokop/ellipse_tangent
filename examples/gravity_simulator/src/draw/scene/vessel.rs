@@ -22,14 +22,14 @@ pub fn draw_vessel(
 ) {
     let body = orbit.body.upgrade().unwrap();
 
-    let f0 = orbit.ellipse.f0();
-    let f1 = orbit.ellipse.f1();
+    // let f0 = orbit.ellipse.f0();
+    // let f1 = orbit.ellipse.f1();
 
     let p = orbit.ellipse.point_on_ellipse(orbit.anomaly);
 
-    let acc = orbit
-        .ellipse
-        .acc(orbit.anomaly, body.mass.clone(), gravitational_constant);
+    // let acc = orbit
+    //     .ellipse
+    //     .acc(orbit.anomaly, body.mass.clone(), gravitational_constant);
 
     let vel =
         orbit
@@ -56,5 +56,5 @@ pub fn draw_vessel(
         duration_since_start,
     );
 
-    draw_vector(draw, "a", p, acc, palette::RADIAL_COLOR, compensatory_scale);
+    // draw_vector(draw, "a", p, acc, palette::RADIAL_COLOR, compensatory_scale);
 }

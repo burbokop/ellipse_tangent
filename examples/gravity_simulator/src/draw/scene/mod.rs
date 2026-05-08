@@ -219,7 +219,12 @@ pub(crate) fn draw_scene<R: rand::RngCore>(
     let body = model.vessel_orbit.body.upgrade().unwrap();
 
     draw_celestial_body(&draw, &body, model.vessel_orbit.ellipse.f0());
-    draw_elliptic_orbit(&draw, &model.vessel_orbit, compensatory_scale);
+    draw_elliptic_orbit(
+        &draw,
+        &model.vessel_orbit,
+        Rgb::from_components((0.2, 0.5, 1.)),
+        compensatory_scale,
+    );
     draw_vessel(
         &draw,
         &model.vessel,
@@ -228,6 +233,17 @@ pub(crate) fn draw_scene<R: rand::RngCore>(
         compensatory_scale,
         duration_since_start,
     );
+
+    if model.event_handler_context.manuever_planner_mode() {
+        if let Some(manuever) = &model.manuever {
+            draw_elliptic_orbit(
+                &draw,
+                &manuever.orbit,
+                Rgb::from_components((1., 0.5, 0.3)),
+                compensatory_scale,
+            );
+        }
+    }
 
     let delta_v = Vector::from_polar(
         model.old_stuff.settings.delta_v_len,

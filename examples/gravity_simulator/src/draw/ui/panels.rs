@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use burbomath::{Rect, Vector};
 use nannou::{
-    color::{Rgba8, BLACK, RED, WHITE},
+    color::{Rgba8, RED, WHITE},
     Draw,
 };
 
@@ -11,9 +11,8 @@ use crate::{
         common::draw_vector_with_icon,
         ui::icons::{
             draw_active_maneuver_icon, draw_active_prograde_icon, draw_active_radial_in_icon,
-            draw_active_radial_out_icon, draw_active_retrograde_icon, draw_heading_icon,
-            draw_maneuver_icon, draw_prograde_icon, draw_radial_in_icon, draw_radial_out_icon,
-            draw_retrograde_icon,
+            draw_active_radial_out_icon, draw_active_retrograde_icon, draw_maneuver_icon,
+            draw_prograde_icon, draw_radial_in_icon, draw_radial_out_icon, draw_retrograde_icon,
         },
     },
     event_handler::AutoRotationTarget,
@@ -25,7 +24,7 @@ pub struct NavCircleData {
     pub retrograde: Vector<f32>,
     pub radial_in: Vector<f32>,
     pub radial_out: Vector<f32>,
-    pub maneuver: Vector<f32>,
+    pub maneuver: Option<Vector<f32>>,
     pub auto_rotation_mode: Option<AutoRotationTarget>,
 }
 
@@ -144,19 +143,21 @@ pub fn draw_nav_circle(
         duration_since_start,
     );
 
-    draw_vector_with_icon(
-        draw,
-        if data.auto_rotation_mode == Some(AutoRotationTarget::Maneuver) {
-            draw_active_maneuver_icon
-        } else {
-            draw_maneuver_icon
-        },
-        center,
-        data.maneuver.norm() * radius,
-        palette::MANEUVER_COLOR,
-        1.,
-        duration_since_start,
-    );
+    if let Some(maneuver) = data.maneuver {
+        draw_vector_with_icon(
+            draw,
+            if data.auto_rotation_mode == Some(AutoRotationTarget::Maneuver) {
+                draw_active_maneuver_icon
+            } else {
+                draw_maneuver_icon
+            },
+            center,
+            maneuver.norm() * radius,
+            palette::MANEUVER_COLOR,
+            1.,
+            duration_since_start,
+        );
+    }
 }
 
 pub struct FlightInfoData {
@@ -295,7 +296,11 @@ pub fn draw_vessel_info(draw: &Draw, bb: Rect<f32>, data: &VesselInfoData) {
     draw_text(0, &format!("todo4: {:.2}", data.todo4), RED.into());
 }
 
-pub fn draw_controls_info(draw: &Draw, bb: Rect<f32>) {
+pub struct ControlsInfoData {
+    pub manuever_mode: bool,
+}
+
+pub fn draw_controls_info(draw: &Draw, bb: Rect<f32>, data: &ControlsInfoData) {
     draw.rect()
         .x(*bb.center().x())
         .y(*bb.center().y())
@@ -307,8 +312,20 @@ pub fn draw_controls_info(draw: &Draw, bb: Rect<f32>) {
 
     let margin = 8.;
 
-    draw.text(
-        &[
+    draw.text(&if data.manuever_mode {
+        [
+            "Enter/Exit manuever mode: M",
+            "Auto rotate to manuever: Alt + M",
+            "Add manuever prograde vel: Up arrow",
+            "Add manuever retrograde vel: Down arrow",
+            "Add manuever radial out vel: Left arrow",
+            "Add manuever radial in vel: Right arrow",
+            "Move manuever start anomaly forward: >",
+            "Move manuever start anomaly backward: <",
+        ]
+        .join("\n")
+    } else {
+        [
             "Move camera vertically: Wheel",
             "Move camera horisontally: Shift + Wheel",
             "Zoom in/out: Ctrl + Wheel",
@@ -316,18 +333,14 @@ pub fn draw_controls_info(draw: &Draw, bb: Rect<f32>) {
             "Turn left/right: A/D",
             "Stop rotation: X",
             "Throttle up/down: W/S",
-            "Auto rotate to prograde vel: Alt + Up arrow",
-            "Auto rotate to retrograde vel: Alt + Down arrow",
-            "Auto rotate to radial out vel: Alt + Left arrow",
-            "Auto rotate to radial in vel: Alt + Right arrow",
+            "Auto rotate to prograde: Alt + Up arrow",
+            "Auto rotate to retrograde: Alt + Down arrow",
+            "Auto rotate to radial out: Alt + Left arrow",
+            "Auto rotate to radial in: Alt + Right arrow",
             "Enter/Exit manuever mode: M",
-            "Add manuever prograde vel: Up arrow",
-            "Add manuever retrograde vel: Down arrow",
-            "Add manuever radial out vel: Left arrow",
-            "Add manuever radial in vel: Right arrow",
         ]
-        .join("\n"),
-    )
+        .join("\n")
+    })
     .x_y(*bb.center().x(), *bb.center().y())
     .w(*bb.w() - 2. * margin)
     .h(*bb.h() - 2. * margin)
