@@ -78,7 +78,7 @@ fn absmin(a: f32, b: f32) -> f32 {
 //     }
 // }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Ellipse {
     pub x: f32,
     pub y: f32,

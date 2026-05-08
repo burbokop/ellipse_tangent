@@ -39,6 +39,7 @@ impl CelestialBody {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct EllipticOrbit {
     pub body: Weak<CelestialBody>,
     pub ellipse: Ellipse,
@@ -61,5 +62,41 @@ impl EllipticOrbit {
             .angular_velocity(self.anomaly, body.mass.clone(), G);
 
         self.anomaly += angular_velocity * dt.as_secs_f32();
+    }
+
+    pub fn accelerated_at_anomaly(
+        &self,
+        delta_v: Vector<f32>,
+        delta_v_anomaly: Angle<f32>,
+        gravitational_constant: f32,
+    ) -> EllipticOrbit {
+        let body = self.body.upgrade().unwrap();
+
+        let f0 = self.ellipse.f0();
+        let p = self.ellipse.point_on_ellipse(delta_v_anomaly);
+
+        let vel = self.ellipse.tangential_velocity(
+            delta_v_anomaly,
+            body.mass.clone(),
+            gravitational_constant,
+        );
+
+        let (_excentricity, new_f1) = self.ellipse.f1_from_tangential_velocity(
+            delta_v_anomaly,
+            body.mass.clone(),
+            gravitational_constant,
+            vel + delta_v,
+        );
+
+        let new_ellipse = Ellipse::from_foci(f0, new_f1, p);
+        let new_anomaly = Angle::from_radians(
+            delta_v_anomaly.radians() / self.ellipse.perimeter() * new_ellipse.perimeter(),
+        );
+
+        EllipticOrbit {
+            body: self.body.clone(),
+            ellipse: new_ellipse,
+            anomaly: new_anomaly,
+        }
     }
 }

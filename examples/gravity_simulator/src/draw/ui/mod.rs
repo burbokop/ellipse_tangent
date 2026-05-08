@@ -5,8 +5,8 @@ use nannou::Draw;
 
 use crate::draw::ui::panels::{
     draw_controls_info, draw_flight_info, draw_manuever_info, draw_nav_circle, draw_throttle_bar,
-    draw_time_info, draw_vessel_info, FlightInfoData, ManueverInfoData, NavCircleData,
-    ThrottleBarData, TimeInfoData, VesselInfoData,
+    draw_time_info, draw_vessel_info, ControlsInfoData, FlightInfoData, ManueverInfoData,
+    NavCircleData, ThrottleBarData, TimeInfoData, VesselInfoData,
 };
 
 pub mod icons;
@@ -15,6 +15,8 @@ pub mod panels;
 pub struct UIData {
     pub nav_circle: NavCircleData,
     pub flight_info: FlightInfoData,
+    pub controls_info: ControlsInfoData,
+
     pub manuever_info: ManueverInfoData,
     pub throttle_bar: ThrottleBarData,
     pub vessel_info: VesselInfoData,
@@ -135,7 +137,7 @@ pub(crate) fn draw_ui(
     )
         .into();
 
-    draw_controls_info(draw, controls_info_bb);
+    draw_controls_info(draw, controls_info_bb, &data.controls_info);
 
     let time_info_size: Size<_> = (125., 40.).into();
     let time_info_right_margin = 30.;
