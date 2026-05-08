@@ -1,10 +1,6 @@
 #![feature(const_default)]
 #![feature(const_trait_impl)]
 
-use burbomath::{camera::Camera, physics::Kg, Complex, DeltaAngle, Matrix, NonNeg, Pi};
-use core::f32;
-use std::{marker::PhantomData, rc::Rc, sync::LazyLock, time::Duration};
-
 mod draw;
 mod event_handler;
 mod font_provider;
@@ -14,20 +10,6 @@ mod palette;
 mod plot;
 mod utils;
 mod vessel;
-
-use burbomath::{Angle, Point, Vector};
-use ellipse_tangent::{
-    ellipse::{Ellipse, TangentDirection},
-    line::Line,
-    utils::deg_to_rot,
-};
-use nannou::{
-    image::{DynamicImage, RgbaImage},
-    prelude::*,
-    text::Font,
-};
-use nannou_egui::{self, egui, Egui};
-use rand::rngs::ThreadRng;
 
 use crate::{
     draw::{
@@ -47,6 +29,25 @@ use crate::{
     utils::nannou_rect_to_rect,
     vessel::{KinematicBody, Vessel},
 };
+use burbomath::{
+    camera::Camera,
+    physics::{Kg, KgPerM3, M, M3},
+    Angle, Complex, DeltaAngle, NonNeg, Pi, Point, Vector,
+};
+use core::f32;
+use ellipse_tangent::{
+    ellipse::{Ellipse, TangentDirection},
+    line::Line,
+    utils::deg_to_rot,
+};
+use nannou::{
+    image::{DynamicImage, RgbaImage},
+    prelude::*,
+    text::Font,
+};
+use nannou_egui::{self, Egui};
+use rand::rngs::ThreadRng;
+use std::{marker::PhantomData, rc::Rc, sync::LazyLock, time::Duration};
 
 static FP: LazyLock<FontProvider> = LazyLock::new(|| FontProvider::new());
 static FONT: LazyLock<Font> = LazyLock::new(|| FP.font());
@@ -104,7 +105,6 @@ struct OldStuff {
     image: DynamicImage,
     plot_magnification: (f32, f32),
     plot_magnification_change_axis_y: bool,
-    dst_angle: Angle<f32>,
 }
 
 struct Model<R: rand::RngCore> {
@@ -147,11 +147,15 @@ fn model(app: &App) -> Model<impl rand::RngCore> {
     let ellipse0 = Ellipse::new(100., 100., 40., 70., deg_to_rad(15.));
     // let ellipse1 = Ellipse::new(-30., -100., 20., 80., deg_to_rad(300.));
 
-    let ellipse1 = Ellipse::new(-30., -100., 100., 70., deg_to_rad(0.));
+    let ellipse1 = Ellipse::new(-30., -100., 200., 140., deg_to_rad(0.));
 
-    let body = Rc::new(CelestialBody {
-        mass: Kg(1000_000_000_000.),
-    });
+    let body = Rc::new(CelestialBody::from_density(
+        Kg(5513.) / M3(1.),
+        M(35.),
+        M(36.),
+        Rgba8::from_components((153, 102, 51, 0xff)),
+        Rgba8::from_components((51, 102, 204, 128)),
+    ));
 
     Model {
         egui,
@@ -207,7 +211,6 @@ fn model(app: &App) -> Model<impl rand::RngCore> {
 
             plot_magnification: (1., 1.),
             plot_magnification_change_axis_y: false,
-            dst_angle: Angle::from_radians(0.),
         },
         _r: PhantomData::<ThreadRng>::default(),
     }
@@ -329,7 +332,7 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
         } else if model.event_handler_context.d_pressed() {
             model.vessel.kinematic_body.rotate_right(dt);
         } else if let Some(auto_rotation_mode) = model.event_handler_context.auto_rotation_mode() {
-            model.old_stuff.dst_angle = match auto_rotation_mode {
+            match auto_rotation_mode {
                 AutoRotationTarget::Prograde => model
                     .vessel
                     .kinematic_body
@@ -414,10 +417,8 @@ fn produce_ui_data<R: rand::RngCore>(model: &Model<R>) -> UIData {
             / model.vessel.kinematic_body.max_thrust().into_inner(),
     };
 
-    let t = model.old_stuff.e1.theta.degrees() / 360.;
     let tangential_velocity = model
-        .old_stuff
-        .e1
+        .vessel_orbit
         .ellipse
         .tangential_velocity(model.vessel_orbit.anomaly, model.body.mass.clone(), G)
         .norm();
@@ -436,7 +437,6 @@ fn produce_ui_data<R: rand::RngCore>(model: &Model<R>) -> UIData {
         radial_out: tangential_velocity * right_axis,
         maneuver: (1., 1.).into(),
         auto_rotation_mode: model.event_handler_context.auto_rotation_mode(),
-        auto_rotation_target: Vector::from_polar(1., model.old_stuff.dst_angle) * top_axis,
     };
 
     let manuever_info_data = ManueverInfoData {

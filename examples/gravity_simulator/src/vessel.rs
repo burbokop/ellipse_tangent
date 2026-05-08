@@ -157,40 +157,12 @@ impl KinematicBody {
         self.rotation_velocity -= self.rotation_acceleration * dt.as_secs_f32();
     }
 
-    pub(crate) fn rotate_to(&mut self, target: Angle<f32>, dt: Duration) -> Angle<f32> {
-        let t = (-self.rotation_velocity.radians() / self.rotation_acceleration.radians()).abs();
-
-        // let t = t * dt.as_secs_f32();
-
-        let x_t = self.rotation_velocity * t + self.rotation_acceleration * t.sq() / 2.;
-
+    /// Accelerate rotation to match target angle
+    pub(crate) fn rotate_to(&mut self, target: Angle<f32>, dt: Duration) {
         let dst = self.rotation.signed_distance(target);
-        let acceleration_multiplier = dst.radians().abs() / f32::consts::PI;
-
-        let r = map_range(
-            acceleration_multiplier,
-            0.,
-            1.,
-            self.rotation_velocity.abs(),
-            self.rotation_acceleration,
-        );
-
-        let r = partial_min(r, self.rotation_acceleration);
-
-        // if dst ~ 0 {
-        //     let desired_acceleration = -self.rotation_velocity;
-        // } else {
-        //     self.rotation_acceleration
-        // }
-
-        // println!(
-        //     "self.rotation_velocity: {:.2}, r: {:.2}",
-        //     self.rotation_velocity, r
-        // );
-
-        println!("< dst.abs(): {:.2}", dst.abs());
 
         let acc = if dst.abs() > self.rotation_velocity.abs() {
+            // accelerate towards target angle
             if dst.degrees() > 0.01 {
                 -self.rotation_acceleration
             } else if dst.degrees() < -0.01 {
@@ -199,11 +171,13 @@ impl KinematicBody {
                 DeltaAngle::from_radians(0.)
             }
         } else {
+            // decelerate to 0
             let t = dst.abs().radians() / self.rotation_velocity.abs().radians();
             let acc = dst.abs() / (t.sq() / 2.);
             acc * (-self.rotation_velocity).radians().signum()
         };
 
+        // contrain acceleration
         let acc = if acc > self.rotation_acceleration {
             self.rotation_acceleration
         } else if acc < -self.rotation_acceleration {
@@ -213,14 +187,6 @@ impl KinematicBody {
         };
 
         self.rotation_velocity += acc * dt.as_secs_f32();
-
-        // if dst.degrees() > 0.1 {
-        //     self.rotation_velocity -= acc * dt.as_secs_f32();
-        // } else if dst.degrees() < -0.1 {
-        //     self.rotation_velocity += acc * dt.as_secs_f32();
-        // }
-
-        target
     }
 
     pub(crate) fn brake_rotation(&mut self, dt: Duration) {

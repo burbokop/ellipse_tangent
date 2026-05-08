@@ -27,7 +27,6 @@ pub struct NavCircleData {
     pub radial_out: Vector<f32>,
     pub maneuver: Vector<f32>,
     pub auto_rotation_mode: Option<AutoRotationTarget>,
-    pub auto_rotation_target: Vector<f32>,
 }
 
 pub fn draw_nav_circle(
@@ -88,18 +87,6 @@ pub fn draw_nav_circle(
         )
         .color(palette::UI_STROKE_COLOR)
         .weight(1.);
-
-    if data.auto_rotation_mode != None {
-        draw_vector_with_icon(
-            draw,
-            draw_heading_icon,
-            center,
-            data.auto_rotation_target.norm() * radius,
-            palette::UI_STROKE_COLOR,
-            1.,
-            duration_since_start,
-        );
-    }
 
     draw_vector_with_icon(
         draw,
