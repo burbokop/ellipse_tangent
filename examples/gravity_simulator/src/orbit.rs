@@ -1,12 +1,42 @@
+use core::f32;
 use std::{rc::Weak, time::Duration};
 
-use burbomath::{physics::Kg, Angle, Vector};
+use burbomath::{
+    physics::{Kg, KgPerM3, M, M3},
+    Angle, Vector,
+};
 use ellipse_tangent::ellipse::Ellipse;
+use nannou::color::Rgba8;
 
 use crate::G;
 
+#[derive(Debug)]
 pub struct CelestialBody {
     pub mass: Kg<f32>,
+    pub solid_radius: M<f32>,
+    pub atmosphere_radius: M<f32>,
+    pub solid_color: Rgba8,
+    pub atmosphere_color: Rgba8,
+}
+
+impl CelestialBody {
+    pub fn from_density(
+        density: KgPerM3<f32>,
+        solid_radius: M<f32>,
+        atmosphere_radius: M<f32>,
+        solid_color: Rgba8,
+        atmosphere_color: Rgba8,
+    ) -> Self {
+        let volume = solid_radius.cube() * (4. / 3. * f32::consts::PI);
+        let mass = volume * density;
+        Self {
+            mass,
+            solid_radius,
+            atmosphere_radius,
+            solid_color,
+            atmosphere_color,
+        }
+    }
 }
 
 pub struct EllipticOrbit {

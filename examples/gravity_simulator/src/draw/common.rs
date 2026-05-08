@@ -3,7 +3,7 @@ use std::{f32::consts::PI, ops::Deref as _, time::Duration};
 use burbomath::{Angle, Complex, Point, Vector};
 use ellipse_tangent::{ellipse::Ellipse, line::Line};
 use nannou::{
-    color::{IntoLinSrgba, Rgb, Rgba},
+    color::{IntoLinSrgba, Rgb, Rgba, Rgba8},
     draw::{primitive, properties::ColorScalar, Drawing},
     geom::pt2,
     math::map_range,
@@ -12,6 +12,7 @@ use nannou::{
 
 use crate::{utils::color_from_hex, FONT};
 
+/// t - from 0 to 1
 pub(crate) fn draw_fading_ellipse(
     draw: &Draw,
     ellipse: &Ellipse,
@@ -80,7 +81,7 @@ pub fn draw_vector(
     name: &str,
     position: Point<f32>,
     vec: Vector<f32>,
-    color: u32,
+    color: Rgba8,
     compensatory_scale: f32,
 ) {
     if position.x().is_finite()
@@ -95,7 +96,7 @@ pub fn draw_vector(
         draw.line()
             .points(points[0], points[1])
             .weight(1. * compensatory_scale)
-            .color(color_from_hex(color));
+            .color(color);
 
         let c = (points[0] + points[1]) / 2.;
 
@@ -104,7 +105,7 @@ pub fn draw_vector(
             .y(c.y)
             .scale(compensatory_scale)
             .text(&format!("{}\u{20D7}: {:.2}", name, vec.len()))
-            .color(color_from_hex(color))
+            .color(color)
             .font(FONT.deref().clone());
     }
 }

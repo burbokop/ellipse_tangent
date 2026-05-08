@@ -3,6 +3,9 @@ use std::time::Duration;
 use crate::{
     draw::{
         common::{draw_fading_ellipse, draw_vector, draw_vector_with_icon},
+        scene::{
+            celestial_body::draw_celestial_body, orbit::draw_elliptic_orbit, vessel::draw_vessel,
+        },
         ui::icons::{draw_heading_icon, draw_prograde_icon},
     },
     palette,
@@ -16,6 +19,10 @@ use nannou::{
     color::{Alpha, Rgb, BLACK, BLUEVIOLET, CYAN, MAGENTA, RED, YELLOW},
     Draw,
 };
+
+mod celestial_body;
+mod orbit;
+mod vessel;
 
 fn draw_ellipse(
     draw: &Draw,
@@ -102,8 +109,22 @@ fn draw_ellipse(
         duration_since_start,
     );
 
-    draw_vector(draw, "a", p, acc, PALLETE[3], compensatory_scale);
-    draw_vector(draw, "Δv", p + vel, delta_v, PALLETE[4], compensatory_scale);
+    draw_vector(
+        draw,
+        "a",
+        p,
+        acc,
+        color_from_hex(PALLETE[3]),
+        compensatory_scale,
+    );
+    draw_vector(
+        draw,
+        "Δv",
+        p + vel,
+        delta_v,
+        color_from_hex(PALLETE[4]),
+        compensatory_scale,
+    );
 
     let (_excentricity, new_f1) = ellipse.f1_from_tangential_velocity(
         Angle::from_degrees(t * 360.),
@@ -194,24 +215,36 @@ pub(crate) fn draw_scene<R: rand::RngCore>(
 
     draw.background().color(color_from_hex(PALLETE[0]));
 
+    let compensatory_scale = 1. / model.camera.transformation().average_scale();
+    let body = model.vessel_orbit.body.upgrade().unwrap();
+
+    draw_celestial_body(&draw, &body, model.vessel_orbit.ellipse.f0());
+    draw_elliptic_orbit(&draw, &model.vessel_orbit, compensatory_scale);
+    draw_vessel(
+        &draw,
+        &model.vessel,
+        &model.vessel_orbit,
+        G,
+        compensatory_scale,
+        duration_since_start,
+    );
+
     let delta_v = Vector::from_polar(
         model.old_stuff.settings.delta_v_len,
         Angle::from_degrees(model.old_stuff.settings.delta_v_angle),
     );
 
-    let compensatory_scale = 1. / model.camera.transformation().average_scale();
-
-    draw_ellipse(
-        &draw,
-        &model.vessel_orbit.ellipse,
-        &model.vessel,
-        model.vessel_orbit.anomaly.degrees() / 360.,
-        delta_v,
-        "body",
-        compensatory_scale,
-        model.body.mass.clone(),
-        duration_since_start,
-    );
+    // draw_ellipse(
+    //     &draw,
+    //     &model.vessel_orbit.ellipse,
+    //     &model.vessel,
+    //     model.vessel_orbit.anomaly.degrees() / 360.,
+    //     delta_v,
+    //     "body",
+    //     compensatory_scale,
+    //     model.body.mass.clone(),
+    //     duration_since_start,
+    // );
 
     // draw_ellipse(
     //     &draw,
