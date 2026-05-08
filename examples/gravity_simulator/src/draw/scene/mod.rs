@@ -236,6 +236,18 @@ pub(crate) fn draw_scene<R: rand::RngCore>(
 
     if model.event_handler_context.manuever_planner_mode() {
         if let Some(manuever) = &model.manuever {
+            let manuever_point = model
+                .vessel_orbit
+                .ellipse
+                .point_on_ellipse(manuever.delta_v_anomaly);
+
+            draw.x(*manuever_point.x())
+                .y(*manuever_point.y())
+                .scale(compensatory_scale)
+                .ellipse()
+                .radius(4.)
+                .color(Rgb::from_components((1., 0.5, 0.3)));
+
             draw_elliptic_orbit(
                 &draw,
                 &manuever.orbit,

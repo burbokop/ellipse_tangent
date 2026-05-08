@@ -1,14 +1,8 @@
 use crate::manuever::Manuever;
 use crate::Model;
 use burbomath::Point;
-use burbomath::Vector;
-use nannou::event;
+use nannou::prelude::*;
 use nannou::App;
-use nannou::{
-    image::{DynamicImage, RgbaImage},
-    prelude::*,
-    text::Font,
-};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum AutoRotationTarget {
@@ -169,7 +163,7 @@ pub fn event<R: rand::RngCore>(app: &App, model: &mut Model<R>, event: Event) {
                         if ctx.manuever_planner_mode && model.manuever.is_none() {
                             model.manuever = Some(Manuever {
                                 orbit: model.vessel_orbit.clone(),
-                                delta_v: (0., 0.).into(),
+                                relative_delta_v: (0., 0.).into(),
                                 delta_v_anomaly: model.vessel_orbit.anomaly,
                             })
                         }

@@ -9,11 +9,25 @@ const VELOCITY_CHANGE_SPEED_FACTOR: f32 = 0.1;
 #[derive(Debug)]
 pub struct Manuever {
     pub orbit: EllipticOrbit,
-    pub delta_v: Vector<f32>,
+    pub relative_delta_v: Vector<f32>,
     pub delta_v_anomaly: Angle<f32>,
 }
 
 impl Manuever {
+    pub fn delta_v(
+        &self,
+        initial_orbit: &EllipticOrbit,
+        gravitational_constant: f32,
+    ) -> Vector<f32> {
+        let body = initial_orbit.body.upgrade().unwrap();
+        let tangential_velocity = initial_orbit
+            .ellipse
+            .tangential_velocity(self.delta_v_anomaly, body.mass, gravitational_constant)
+            .norm();
+
+        self.relative_delta_v * tangential_velocity.rotor()
+    }
+
     pub fn move_start_anomaly_forward(
         &mut self,
         initial_orbit: &EllipticOrbit,
@@ -24,7 +38,7 @@ impl Manuever {
             DeltaAngle::from_radians(ANOMALY_CHANGE_SPEED_FACTOR) * dt.as_secs_f32();
 
         self.orbit = initial_orbit.accelerated_at_anomaly(
-            self.delta_v,
+            self.delta_v(initial_orbit, gravitational_constant),
             self.delta_v_anomaly,
             gravitational_constant,
         );
@@ -40,7 +54,7 @@ impl Manuever {
             DeltaAngle::from_radians(ANOMALY_CHANGE_SPEED_FACTOR) * dt.as_secs_f32();
 
         self.orbit = initial_orbit.accelerated_at_anomaly(
-            self.delta_v,
+            self.delta_v(initial_orbit, gravitational_constant),
             self.delta_v_anomaly,
             gravitational_constant,
         );
@@ -59,10 +73,13 @@ impl Manuever {
             gravitational_constant,
         );
 
-        self.delta_v += tangential_velocity * VELOCITY_CHANGE_SPEED_FACTOR * dt.as_secs_f32();
+        self.relative_delta_v += Vector::from((1., 0.))
+            * tangential_velocity.len()
+            * VELOCITY_CHANGE_SPEED_FACTOR
+            * dt.as_secs_f32();
 
         self.orbit = initial_orbit.accelerated_at_anomaly(
-            self.delta_v,
+            self.delta_v(initial_orbit, gravitational_constant),
             self.delta_v_anomaly,
             gravitational_constant,
         );
@@ -81,10 +98,13 @@ impl Manuever {
             gravitational_constant,
         );
 
-        self.delta_v -= tangential_velocity * VELOCITY_CHANGE_SPEED_FACTOR * dt.as_secs_f32();
+        self.relative_delta_v += Vector::from((-1., 0.))
+            * tangential_velocity.len()
+            * VELOCITY_CHANGE_SPEED_FACTOR
+            * dt.as_secs_f32();
 
         self.orbit = initial_orbit.accelerated_at_anomaly(
-            self.delta_v,
+            self.delta_v(initial_orbit, gravitational_constant),
             self.delta_v_anomaly,
             gravitational_constant,
         );
@@ -103,11 +123,13 @@ impl Manuever {
             gravitational_constant,
         );
 
-        self.delta_v +=
-            tangential_velocity.left_perp() * VELOCITY_CHANGE_SPEED_FACTOR * dt.as_secs_f32();
+        self.relative_delta_v += Vector::from((0., -1.))
+            * tangential_velocity.len()
+            * VELOCITY_CHANGE_SPEED_FACTOR
+            * dt.as_secs_f32();
 
         self.orbit = initial_orbit.accelerated_at_anomaly(
-            self.delta_v,
+            self.delta_v(initial_orbit, gravitational_constant),
             self.delta_v_anomaly,
             gravitational_constant,
         );
@@ -126,11 +148,13 @@ impl Manuever {
             gravitational_constant,
         );
 
-        self.delta_v +=
-            tangential_velocity.right_perp() * VELOCITY_CHANGE_SPEED_FACTOR * dt.as_secs_f32();
+        self.relative_delta_v += Vector::from((0., 1.))
+            * tangential_velocity.len()
+            * VELOCITY_CHANGE_SPEED_FACTOR
+            * dt.as_secs_f32();
 
         self.orbit = initial_orbit.accelerated_at_anomaly(
-            self.delta_v,
+            self.delta_v(initial_orbit, gravitational_constant),
             self.delta_v_anomaly,
             gravitational_constant,
         );
