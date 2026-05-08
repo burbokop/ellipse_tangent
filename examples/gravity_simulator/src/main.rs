@@ -458,7 +458,10 @@ fn produce_ui_data<R: rand::RngCore>(model: &Model<R>) -> UIData {
         radial_in: tangential_velocity * left_axis,
         radial_out: tangential_velocity * right_axis,
         maneuver: if model.event_handler_context.manuever_planner_mode() {
-            Some((1., 1.).into())
+            let manuever = model.manuever.as_ref().unwrap();
+            let delta_v = manuever.delta_v(&model.vessel_orbit, G);
+
+            Some(delta_v * top_axis)
         } else {
             None
         },
