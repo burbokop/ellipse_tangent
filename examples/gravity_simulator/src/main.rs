@@ -33,7 +33,7 @@ use crate::{
 };
 use burbomath::{
     camera::Camera,
-    physics::{Kg, KgPerM3, M, M3},
+    physics::{Kg, M, M3},
     Angle, Complex, DeltaAngle, NonNeg, Pi, Point, Vector,
 };
 use core::f32;
@@ -332,9 +332,13 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
         if model.event_handler_context.x_pressed() {
             model.vessel.kinematic_body.brake_rotation(dt);
         } else if model.event_handler_context.a_pressed() {
-            model.vessel.kinematic_body.rotate_left(dt);
+            if model.time_speed <= 1. {
+                model.vessel.kinematic_body.rotate_left(dt);
+            }
         } else if model.event_handler_context.d_pressed() {
-            model.vessel.kinematic_body.rotate_right(dt);
+            if model.time_speed <= 1. {
+                model.vessel.kinematic_body.rotate_right(dt);
+            }
         } else if let Some(auto_rotation_mode) = model.event_handler_context.auto_rotation_mode() {
             match auto_rotation_mode {
                 AutoRotationTarget::Prograde => model

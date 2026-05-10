@@ -4,7 +4,7 @@ use nannou::Draw;
 
 use crate::{
     draw::{
-        common::{draw_vector, draw_vector_with_icon},
+        common::draw_vector_with_icon,
         ui::icons::{draw_heading_icon, draw_prograde_icon},
     },
     orbit::EllipticOrbit,

@@ -194,12 +194,12 @@ pub fn event<R: rand::RngCore>(app: &App, model: &mut Model<R>, event: Event) {
                     KeyReleased(Key::Key1) => model.time_speed = 1.,
                     KeyReleased(Key::Key2) => model.time_speed = 2.,
                     KeyReleased(Key::Key3) => model.time_speed = 4.,
-                    KeyReleased(Key::Key4) => model.time_speed = 8.,
-                    KeyReleased(Key::Key5) => model.time_speed = 16.,
-                    KeyReleased(Key::Key6) => model.time_speed = 32.,
-                    KeyReleased(Key::Key7) => model.time_speed = 64.,
-                    KeyReleased(Key::Key8) => model.time_speed = 128.,
-                    KeyReleased(Key::Key9) => model.time_speed = 256.,
+                    KeyReleased(Key::Key4) => model.time_speed = 16.,
+                    KeyReleased(Key::Key5) => model.time_speed = 64.,
+                    KeyReleased(Key::Key6) => model.time_speed = 256.,
+                    KeyReleased(Key::Key7) => model.time_speed = 8192.,
+                    KeyReleased(Key::Key8) => model.time_speed = 65536.,
+                    KeyReleased(Key::Key9) => model.time_speed = 524288.,
                     KeyPressed(..) => {}
                     KeyReleased(k) => {
                         println!("Key released: {:?}", k)

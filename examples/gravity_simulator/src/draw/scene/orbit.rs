@@ -1,9 +1,6 @@
 use core::f32;
 
-use nannou::{
-    color::{Rgb, Rgba8},
-    Draw,
-};
+use nannou::{color::Rgb, Draw};
 
 use crate::{draw::common::draw_fading_ellipse, orbit::EllipticOrbit};
 
