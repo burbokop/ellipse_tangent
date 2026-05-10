@@ -1,13 +1,10 @@
+use burbomath::{Angle, Complex, DeltaAngle, NonNeg, Sq, Vector, Zero};
 use core::f32;
+use nannou::math::{partial_max, partial_min};
 use std::{
-    f32::consts::PI,
     ops::{Add, Div, Mul, Sub},
-    process::Output,
     time::Duration,
 };
-
-use burbomath::{Angle, Complex, DeltaAngle, NonNeg, Pi, Sq, Vector, Zero};
-use nannou::math::{partial_max, partial_min};
 
 pub struct ThrustControl {
     thrust: NonNeg<f32>,
@@ -212,7 +209,8 @@ impl KinematicBody {
     }
 
     pub(crate) fn proceed(&mut self, dt: Duration) {
-        self.rotation += self.rotation_velocity * dt.as_secs_f32();
+        self.rotation
+            .add_assign_cyclically(self.rotation_velocity * dt.as_secs_f32());
         self.thrust_control.proceed(dt);
     }
 

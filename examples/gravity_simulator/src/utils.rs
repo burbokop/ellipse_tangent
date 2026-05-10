@@ -1,6 +1,6 @@
-use std::{clone, marker::PhantomData, ops::Sub, process::Output};
+use std::{marker::PhantomData, ops::Sub};
 
-use burbomath::{camera::Camera, Matrix, Point, Rect};
+use burbomath::{Matrix, Rect};
 use nannou::{
     color::Rgba8,
     glam::{Mat3, Mat4},
