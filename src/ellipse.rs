@@ -6,7 +6,10 @@ use num_traits::Pow as _;
 use rustnomial::Polynomial;
 use std::{f32::consts::PI, time::Duration};
 
-use crate::{line::Line, utils::notmalize_array_around_one};
+use crate::{
+    line::Line,
+    utils::{RelativeDuration, notmalize_array_around_one},
+};
 
 #[inline(always)]
 fn absmax(a: f32, b: f32) -> f32 {
@@ -531,6 +534,43 @@ impl Ellipse {
         Ellipse::from_foci(f0, new_f1, p)
     }
 
+    pub fn eccentricity(&self) -> f32 {
+        (1.0 - (self.b / self.a).powi(2)).sqrt()
+    }
+
+    pub fn time_between_anomalies(
+        &self,
+        anomaly0: Angle<f32>,
+        anomaly1: Angle<f32>,
+        central_body_mass: Kg<f32>,
+        gravitational_constant: f32,
+    ) -> Duration {
+        time_between_true_anomalies(
+            self.a,
+            self.eccentricity(),
+            anomaly0,
+            anomaly1,
+            central_body_mass.0 * gravitational_constant,
+        )
+    }
+
+    /// Unlike `time_between_anomalies` can return negative time
+    pub fn relative_time_between_anomalies(
+        &self,
+        anomaly0: Angle<f32>,
+        anomaly1: Angle<f32>,
+        central_body_mass: Kg<f32>,
+        gravitational_constant: f32,
+    ) -> RelativeDuration {
+        relative_time_between_true_anomalies(
+            self.a,
+            self.eccentricity(),
+            anomaly0,
+            anomaly1,
+            central_body_mass.0 * gravitational_constant,
+        )
+    }
+
     pub(crate) fn eq_no_rot(&self, x: f32, y: f32) -> f32 {
         (x - self.x).pow(2.) / self.a.pow(2.) + (y - self.y).pow(2.) / self.b.pow(2.) - 1.
     }
@@ -932,12 +972,64 @@ impl Ellipse {
     }
 }
 
+fn time_between_true_anomalies(
+    major_axis: f32,
+    eccentricity: f32,
+    nu1: Angle<f32>,
+    nu2: Angle<f32>,
+    mu: f32,
+) -> Duration {
+    let e1 = true_anomaly_to_eccentric(eccentricity, nu1);
+    let e2 = true_anomaly_to_eccentric(eccentricity, nu2);
+
+    let m1 = eccentric_anomaly_to_mean(eccentricity, e1);
+    let m2 = eccentric_anomaly_to_mean(eccentricity, e2);
+
+    // Mean motion (n = sqrt(mu / a^3))
+    let n = (mu / major_axis.powi(3)).sqrt();
+
+    let mut delta_m = m2 - m1;
+
+    // Ensure the time is positive if traveling forward
+    if delta_m < 0.0 {
+        delta_m += 2.0 * PI;
+    }
+
+    Duration::from_secs_f32(delta_m / n)
+}
+
+fn relative_time_between_true_anomalies(
+    major_axis: f32,
+    eccentricity: f32,
+    nu1: Angle<f32>,
+    nu2: Angle<f32>,
+    mu: f32,
+) -> RelativeDuration {
+    let e1 = true_anomaly_to_eccentric(eccentricity, nu1);
+    let e2 = true_anomaly_to_eccentric(eccentricity, nu2);
+
+    let m1 = eccentric_anomaly_to_mean(eccentricity, e1);
+    let m2 = eccentric_anomaly_to_mean(eccentricity, e2);
+
+    // Mean motion (n = sqrt(mu / a^3))
+    let n = (mu / major_axis.powi(3)).sqrt();
+
+    RelativeDuration::from_secs_f32((m2 - m1) / n)
+}
+
+fn true_anomaly_to_eccentric(eccentricity: f32, anomaly: Angle<f32>) -> f32 {
+    let factor = ((1.0 - eccentricity) / (1.0 + eccentricity)).sqrt();
+    2.0 * (factor * (anomaly.radians() / 2.0).tan()).atan()
+}
+
+fn eccentric_anomaly_to_mean(eccentricity: f32, e_anom: f32) -> f32 {
+    e_anom - eccentricity * e_anom.sin()
+}
+
 #[cfg(test)]
 mod tests {
     use super::Ellipse;
-    use crate::utils::deg_to_rad;
     use num_traits::Pow as _;
-    use roots::Roots;
 
     macro_rules! assert_eq_err {
         ($x: expr, $y: expr, $err: expr) => {

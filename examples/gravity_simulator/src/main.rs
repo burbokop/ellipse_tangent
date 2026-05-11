@@ -40,7 +40,7 @@ use core::f32;
 use ellipse_tangent::{
     ellipse::{Ellipse, TangentDirection},
     line::Line,
-    utils::deg_to_rot,
+    utils::{deg_to_rot, RelativeDuration},
 };
 use nannou::{
     image::{DynamicImage, RgbaImage},
@@ -150,12 +150,12 @@ fn model(app: &App) -> Model<impl rand::RngCore> {
     let ellipse0 = Ellipse::new(100., 100., 40., 70., deg_to_rad(15.));
     // let ellipse1 = Ellipse::new(-30., -100., 20., 80., deg_to_rad(300.));
 
-    let ellipse1 = Ellipse::new(-30., -100., 200., 140., deg_to_rad(0.));
+    let ellipse1 = Ellipse::new(-30., -100., 200., 190., deg_to_rad(0.));
 
     let body = Rc::new(CelestialBody::from_density(
         Kg(5513.) / M3(1.),
-        M(35.),
-        M(36.),
+        M(100.),
+        M(101.),
         Rgba8::from_components((153, 102, 51, 0xff)),
         Rgba8::from_components((51, 102, 204, 128)),
     ));
@@ -169,9 +169,9 @@ fn model(app: &App) -> Model<impl rand::RngCore> {
         vessel: Vessel {
             kinematic_body: KinematicBody::new(
                 DeltaAngle::from_radians(1.),
-                NonNeg::new(0.1 * 10000.).unwrap(),
-                NonNeg::new(0.1 * 10000.).unwrap(),
-                NonNeg::new(0.05 * 10000.).unwrap(),
+                NonNeg::new(0.1 * 10.).unwrap(),
+                NonNeg::new(0.1 * 10.).unwrap(),
+                NonNeg::new(0.05 * 10.).unwrap(),
                 NonNeg::new(1000.).unwrap(),
             ),
         },
@@ -357,10 +357,15 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
                     tangential_velocity.angle() + DeltaAngle::<f32>::pi() / 2.,
                     dt,
                 ),
-                AutoRotationTarget::Maneuver => model
-                    .vessel
-                    .kinematic_body
-                    .rotate_to(Angle::from_radians(f32::consts::PI / 4.), dt),
+                AutoRotationTarget::Maneuver => {
+                    let target_angle = model
+                        .manuever
+                        .as_ref()
+                        .expect("Should not enter AutoRotationTarget::Maneuver if manuever is None")
+                        .delta_v(&model.vessel_orbit, G)
+                        .angle();
+                    model.vessel.kinematic_body.rotate_to(target_angle, dt)
+                }
             }
         }
 
@@ -474,6 +479,16 @@ fn produce_ui_data<R: rand::RngCore>(model: &Model<R>) -> UIData {
 
     let manuever_info_data = ManueverInfoData {
         manuever_mode: model.event_handler_context.manuever_planner_mode(),
+        time_to_manuever: model
+            .manuever
+            .as_ref()
+            .map(|m| model.vessel_orbit.time_to(m.delta_v_anomaly))
+            .unwrap_or(RelativeDuration::from_secs(0)),
+        time_to_trust: Duration::from_secs(0),
+        manuever_duration: Duration::from_secs(0),
+        delta_v_needed: 0.,
+        todo0: 0.,
+        todo1: 0.,
     };
 
     let flight_info_data = FlightInfoData {
