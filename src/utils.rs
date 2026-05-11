@@ -1,5 +1,5 @@
 use num_traits::{Pow as _, real::Real};
-use std::ops::DivAssign;
+use std::{ops::DivAssign, time::Duration};
 
 pub fn deg_to_rad(deg: f32) -> f32 {
     deg * std::f32::consts::PI / 180.
@@ -67,3 +67,28 @@ pub fn notmalize_array_around_one<const N: usize>(mut v: [f32; N]) -> [f32; N] {
 //
 
 // arr.max(|x| x * c)
+
+pub struct RelativeDuration {
+    duration: Duration,
+    sign: i8,
+}
+
+impl RelativeDuration {
+    pub fn from_secs_f32(secs: f32) -> Self {
+        Self {
+            duration: Duration::from_secs_f32(secs.abs()),
+            sign: secs.signum() as i8,
+        }
+    }
+
+    pub const fn from_secs(secs: u64) -> Self {
+        Self {
+            duration: Duration::from_secs(secs),
+            sign: 1,
+        }
+    }
+
+    pub const fn as_secs_f32(&self) -> f32 {
+        self.duration.as_secs_f32() * self.sign as f32
+    }
+}

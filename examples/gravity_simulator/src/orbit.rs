@@ -2,10 +2,10 @@ use core::f32;
 use std::{rc::Weak, time::Duration};
 
 use burbomath::{
-    physics::{Kg, KgPerM3, M, M3},
+    physics::{Kg, KgPerM3, M},
     Angle, Vector,
 };
-use ellipse_tangent::ellipse::Ellipse;
+use ellipse_tangent::{ellipse::Ellipse, utils::RelativeDuration};
 use nannou::color::Rgba8;
 
 use crate::G;
@@ -47,6 +47,12 @@ pub struct EllipticOrbit {
 }
 
 impl EllipticOrbit {
+    pub fn time_to(&self, anomaly: Angle<f32>) -> RelativeDuration {
+        let body = self.body.upgrade().unwrap();
+        self.ellipse
+            .relative_time_between_anomalies(self.anomaly, anomaly, body.mass, G)
+    }
+
     pub fn accelerate(&mut self, acceleration: Vector<f32>, dt: Duration) {
         let body = self.body.upgrade().unwrap();
         self.ellipse =

@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use burbomath::{Rect, Vector};
+use ellipse_tangent::utils::RelativeDuration;
 use nannou::{
     color::{Rgba8, RED, WHITE},
     Draw,
@@ -352,6 +353,12 @@ pub fn draw_controls_info(draw: &Draw, bb: Rect<f32>, data: &ControlsInfoData) {
 
 pub struct ManueverInfoData {
     pub manuever_mode: bool,
+    pub time_to_manuever: RelativeDuration,
+    pub time_to_trust: Duration,
+    pub manuever_duration: Duration,
+    pub delta_v_needed: f32,
+    pub todo0: f32,
+    pub todo1: f32,
 }
 
 pub fn draw_manuever_info(draw: &Draw, bb: Rect<f32>, data: &ManueverInfoData) {
@@ -366,18 +373,77 @@ pub fn draw_manuever_info(draw: &Draw, bb: Rect<f32>, data: &ManueverInfoData) {
 
     let margin = 8.;
 
-    draw.text(if data.manuever_mode {
-        "Manuever mode ON"
+    if data.manuever_mode {
+        draw.rect()
+            .x(*bb.center().x())
+            .y(*bb.center().y())
+            .w(*bb.w())
+            .h(*bb.h())
+            .color(palette::UI_BACKGROUND_COLOR)
+            .stroke_color(palette::UI_STROKE_COLOR)
+            .stroke_weight(1.);
+
+        let left_margin = 8.;
+        let row_count = 6;
+
+        let row_height = bb.h() / row_count as f32;
+        let draw_text = |index: usize, text: &str, color: Rgba8| {
+            draw.text(text)
+                .x_y(
+                    left_margin + *bb.center().x(),
+                    bb.y() + row_height / 2. + row_height * index as f32,
+                )
+                .w(*bb.w())
+                .h(row_height)
+                .font_size(12)
+                .left_justify()
+                .align_text_middle_y()
+                .color(color);
+        };
+
+        draw_text(
+            5,
+            &format!(
+                "time_to_manuever: {:.2} s",
+                data.time_to_manuever.as_secs_f32()
+            ),
+            palette::MANEUVER_COLOR,
+        );
+
+        draw_text(
+            4,
+            &format!("time_to_trust: {:.2} s", data.time_to_trust.as_secs_f32()),
+            palette::MANEUVER_COLOR,
+        );
+
+        draw_text(
+            3,
+            &format!(
+                "manuever_duration: {:.2} s",
+                data.manuever_duration.as_secs_f32()
+            ),
+            palette::MANEUVER_COLOR,
+        );
+
+        draw_text(
+            2,
+            &format!("delta_v_needed: {:.2}", data.delta_v_needed),
+            palette::MANEUVER_COLOR.into(),
+        );
+
+        draw_text(1, &format!("todo0: {:.2}", data.todo0), RED.into());
+
+        draw_text(0, &format!("todo1: {:.2}", data.todo1), RED.into());
     } else {
-        "Manuever mode OFF"
-    })
-    .x_y(*bb.center().x(), *bb.center().y())
-    .w(*bb.w() - 2. * margin)
-    .h(*bb.h() - 2. * margin)
-    .font_size(20)
-    .center_justify()
-    .align_text_middle_y()
-    .color(palette::MANEUVER_COLOR);
+        draw.text("Manuever mode OFF")
+            .x_y(*bb.center().x(), *bb.center().y())
+            .w(*bb.w() - 2. * margin)
+            .h(*bb.h() - 2. * margin)
+            .font_size(20)
+            .center_justify()
+            .align_text_middle_y()
+            .color(palette::MANEUVER_COLOR);
+    }
 }
 
 pub struct ThrottleBarData {
