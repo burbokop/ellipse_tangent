@@ -126,6 +126,10 @@ impl KinematicBody {
         self.thrust_control.max_thrust()
     }
 
+    pub(crate) fn max_acceleration(&self) -> NonNeg<f32> {
+        self.thrust_control.max_thrust() / self.mass
+    }
+
     pub(crate) fn mass(&self) -> NonNeg<f32> {
         self.mass
     }

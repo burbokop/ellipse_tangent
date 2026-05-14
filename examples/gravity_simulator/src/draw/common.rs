@@ -135,7 +135,7 @@ pub fn draw_vector_with_icon<C>(
     {
         let icon_radius = 8. * compensatory_scale;
 
-        let icon_radius = f32::min(vec.len() / 2., icon_radius);
+        let icon_radius = f32::min(vec.len().into_inner() / 2., icon_radius);
 
         let points = [
             <(f32, f32)>::from(position).into(),

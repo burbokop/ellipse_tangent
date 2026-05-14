@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use crate::orbit::EllipticOrbit;
-use burbomath::{Angle, DeltaAngle, Vector};
+use burbomath::{Angle, DeltaAngle, NonNeg, Vector};
 
 const ANOMALY_CHANGE_SPEED_FACTOR: f32 = 1.;
 const VELOCITY_CHANGE_SPEED_FACTOR: f32 = 0.1;
@@ -26,6 +26,10 @@ impl Manuever {
             .norm();
 
         self.relative_delta_v * tangential_velocity.rotor()
+    }
+
+    pub fn duration(&self, acceleration: NonNeg<f32>) -> Duration {
+        Duration::from_secs_f32((self.relative_delta_v.len() / acceleration).into_inner())
     }
 
     pub fn move_start_anomaly_forward(
@@ -74,7 +78,7 @@ impl Manuever {
         );
 
         self.relative_delta_v += Vector::from((1., 0.))
-            * tangential_velocity.len()
+            * tangential_velocity.len().into_inner()
             * VELOCITY_CHANGE_SPEED_FACTOR
             * dt.as_secs_f32();
 
@@ -99,7 +103,7 @@ impl Manuever {
         );
 
         self.relative_delta_v += Vector::from((-1., 0.))
-            * tangential_velocity.len()
+            * tangential_velocity.len().into_inner()
             * VELOCITY_CHANGE_SPEED_FACTOR
             * dt.as_secs_f32();
 
@@ -124,7 +128,7 @@ impl Manuever {
         );
 
         self.relative_delta_v += Vector::from((0., -1.))
-            * tangential_velocity.len()
+            * tangential_velocity.len().into_inner()
             * VELOCITY_CHANGE_SPEED_FACTOR
             * dt.as_secs_f32();
 
@@ -149,7 +153,7 @@ impl Manuever {
         );
 
         self.relative_delta_v += Vector::from((0., 1.))
-            * tangential_velocity.len()
+            * tangential_velocity.len().into_inner()
             * VELOCITY_CHANGE_SPEED_FACTOR
             * dt.as_secs_f32();
 

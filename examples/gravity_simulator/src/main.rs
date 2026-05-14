@@ -33,6 +33,7 @@ use crate::{
 };
 use burbomath::{
     camera::Camera,
+    non_neg,
     physics::{Kg, M, M3},
     Angle, Complex, DeltaAngle, NonNeg, Pi, Point, Vector,
 };
@@ -234,7 +235,7 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
         let egui = &mut model.egui;
         let settings = &mut model.old_stuff.settings;
         egui.set_elapsed_time(update.since_start);
-        let ctx = egui.begin_frame();
+        let _ctx = egui.begin_frame();
 
         let theta0 = &mut model.old_stuff.e0.theta.degrees();
         let theta1 = &mut model.old_stuff.e1.theta.degrees();
@@ -247,9 +248,9 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
 
         let dt = Duration::from_secs_f32(update.since_last.as_secs_f32() * model.time_speed);
 
-        let e0_focal_len =
+        let _e0_focal_len =
             (model.old_stuff.e0.ellipse.a.pow(2.) - model.old_stuff.e0.ellipse.b.pow(2.)).sqrt();
-        let e1_focal_len =
+        let _e1_focal_len =
             (model.old_stuff.e1.ellipse.a.pow(2.) - model.old_stuff.e1.ellipse.b.pow(2.)).sqrt();
 
         let angular_velocity0 = model.old_stuff.e0.ellipse.angular_velocity(
@@ -484,9 +485,16 @@ fn produce_ui_data<R: rand::RngCore>(model: &Model<R>) -> UIData {
             .as_ref()
             .map(|m| model.vessel_orbit.time_to(m.delta_v_anomaly))
             .unwrap_or(RelativeDuration::from_secs(0)),
-        time_to_trust: Duration::from_secs(0),
-        manuever_duration: Duration::from_secs(0),
-        delta_v_needed: 0.,
+        manuever_duration: model
+            .manuever
+            .as_ref()
+            .map(|m| m.duration(model.vessel.kinematic_body.max_acceleration()))
+            .unwrap_or(Duration::from_secs(0)),
+        delta_v_needed: model
+            .manuever
+            .as_ref()
+            .map(|m| m.relative_delta_v.len())
+            .unwrap_or(non_neg!(0.)),
         todo0: 0.,
         todo1: 0.,
     };
