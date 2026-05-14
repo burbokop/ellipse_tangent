@@ -207,14 +207,15 @@ impl Ellipse {
     }
 
     pub fn from_foci(f0: Point<f32>, f1: Point<f32>, point_on_ellipse: Point<f32>) -> Ellipse {
-        let c = (f0 - f1).len() / 2.;
+        let c = (f0 - f1).len().into_inner() / 2.;
 
         // (sum / 2.)^2 = c^2 + b^2;
         // sum = (a-c)*2 + c*2
         // sum = a*2
         // a^2 == c^2 + b^2;
 
-        let sum = (f0 - point_on_ellipse).len() + (f1 - point_on_ellipse).len();
+        let sum =
+            (f0 - point_on_ellipse).len().into_inner() + (f1 - point_on_ellipse).len().into_inner();
         let a = sum / 2.;
         let b = (a.sq() - c.sq()).sqrt();
 
@@ -271,7 +272,7 @@ impl Ellipse {
         gravitational_constant: f32,
     ) -> Vector<f32> {
         let vec = self.f0() - self.point_on_ellipse(anomaly);
-        let vec_len = vec.len();
+        let vec_len = vec.len().into_inner();
         vec * central_body_mass.0 * gravitational_constant / vec_len.pow(3.)
     }
 
@@ -285,7 +286,7 @@ impl Ellipse {
         // let center = (self.x, self.y);
 
         let vec = self.f0() - self.point_on_ellipse(anomaly);
-        let vec_len = vec.len();
+        let vec_len = vec.len().into_inner();
 
         // let radius = self.radius(t);
         // println!("radius: {}", radius);
@@ -318,10 +319,11 @@ impl Ellipse {
     ) -> DeltaAngle<f32> {
         let p = self.point_on_ellipse(anomaly);
         let f0 = self.f0();
-        let r = (p - f0).len();
+        let r = (p - f0).len().into_inner();
         let v = self
             .tangential_velocity(anomaly, central_body_mass, gravitational_constant)
-            .len();
+            .len()
+            .into_inner();
 
         DeltaAngle::from_radians(v / r)
     }
@@ -339,8 +341,8 @@ impl Ellipse {
         let _r = p - f0;
         let _v = vel;
         let _mu = central_body_mass.0 * gravitational_constant;
-        let _r_len = _r.len();
-        let _v_len = _v.len();
+        let _r_len = _r.len().into_inner();
+        let _v_len = _v.len().into_inner();
         let _h = _r.cross(_v);
         let _energy = _v_len.sq() / 2. - _mu / _r_len;
         let _a = -_mu / (2. * _energy);
@@ -363,11 +365,11 @@ impl Ellipse {
         let f0 = self.f0();
         let vec_to_focus = f0 - p;
         #[allow(unused)]
-        let vec_to_focus_len = vec_to_focus.len();
+        let vec_to_focus_len = vec_to_focus.len().into_inner();
         #[allow(unused)]
         let th = anomaly.radians();
         #[allow(unused)]
-        let velocity_module = vel.len();
+        let velocity_module = vel.len().into_inner();
         #[allow(unused)]
         let q = 1.
             / (4. / vec_to_focus_len
@@ -888,7 +890,7 @@ impl Ellipse {
         let g_0 = 2. * i_0 * r_0 * (a_0.pow(2.) - b_0.pow(2.));
         let h_0 = (a_0 * i_0).pow(2.) + (b_0 * r_0).pow(2.);
 
-        let discriminant_0 = k.pow(2.) * f_0 + k * g_0 + h_0;
+        let _discriminant_0 = k.pow(2.) * f_0 + k * g_0 + h_0;
 
         //let discriminant_0
         //    = (a_0 * (r_0 * k + i_0)).pow(2.)
@@ -903,7 +905,7 @@ impl Ellipse {
         let g_1 = 2. * i_1 * r_1 * (a_1.pow(2.) - b_1.pow(2.));
         let h_1 = (a_1 * i_1).pow(2.) + (b_1 * r_1).pow(2.);
 
-        let discriminant_1 = k.pow(2.) * f_1 + k * g_1 + h_1;
+        let _discriminant_1 = k.pow(2.) * f_1 + k * g_1 + h_1;
 
         //let discriminant_1
         //    = (a_1 * (r_1 * k + i_1)).pow(2.)
@@ -912,8 +914,8 @@ impl Ellipse {
         let rhs =
             (k.pow(2.) * f_1 + k * g_1 + h_1).sqrt() - (k.pow(2.) * f_0 + k * g_0 + h_0).sqrt();
 
-        let discriminant_0 = (a_0 * (r_0 * k + i_0)).pow(2.) + (b_0 * (i_0 * k - r_0)).pow(2.);
-        let discriminant_1 = (a_1 * (r_1 * k + i_1)).pow(2.) + (b_1 * (i_1 * k - r_1)).pow(2.);
+        let _discriminant_0 = (a_0 * (r_0 * k + i_0)).pow(2.) + (b_0 * (i_0 * k - r_0)).pow(2.);
+        let _discriminant_1 = (a_1 * (r_1 * k + i_1)).pow(2.) + (b_1 * (i_1 * k - r_1)).pow(2.);
 
         //= a.pow(2.)
         //+ b.pow(2.)

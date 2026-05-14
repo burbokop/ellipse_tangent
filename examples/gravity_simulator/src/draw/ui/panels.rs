@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use burbomath::{Rect, Vector};
+use burbomath::{NonNeg, Rect, Vector};
 use ellipse_tangent::utils::RelativeDuration;
 use nannou::{
     color::{Rgba8, RED, WHITE},
@@ -162,7 +162,7 @@ pub fn draw_nav_circle(
 }
 
 pub struct FlightInfoData {
-    pub velocity: f32,
+    pub velocity: NonNeg<f32>,
     pub apoapsis: f32,
     pub periapsis: f32,
     pub delta_v_capacity: f32,
@@ -354,9 +354,8 @@ pub fn draw_controls_info(draw: &Draw, bb: Rect<f32>, data: &ControlsInfoData) {
 pub struct ManueverInfoData {
     pub manuever_mode: bool,
     pub time_to_manuever: RelativeDuration,
-    pub time_to_trust: Duration,
     pub manuever_duration: Duration,
-    pub delta_v_needed: f32,
+    pub delta_v_needed: NonNeg<f32>,
     pub todo0: f32,
     pub todo1: f32,
 }
@@ -412,7 +411,10 @@ pub fn draw_manuever_info(draw: &Draw, bb: Rect<f32>, data: &ManueverInfoData) {
 
         draw_text(
             4,
-            &format!("time_to_trust: {:.2} s", data.time_to_trust.as_secs_f32()),
+            &format!(
+                "time_to_trust: {:.2} s",
+                data.time_to_manuever.as_secs_f32() - data.manuever_duration.as_secs_f32() / 2.
+            ),
             palette::MANEUVER_COLOR,
         );
 
@@ -427,7 +429,7 @@ pub fn draw_manuever_info(draw: &Draw, bb: Rect<f32>, data: &ManueverInfoData) {
 
         draw_text(
             2,
-            &format!("delta_v_needed: {:.2}", data.delta_v_needed),
+            &format!("delta_v_needed: {:.2} m/c", data.delta_v_needed),
             palette::MANEUVER_COLOR.into(),
         );
 
