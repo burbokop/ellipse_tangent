@@ -1,16 +1,31 @@
-use num_traits::{Pow as _, real::Real};
-use std::{ops::DivAssign, time::Duration};
+use burbomath::{Abs, Angle, Complex, FromUSize, IsPositive, Log2, NonNeg, Positive, Two};
+use num_traits::{Pow, real::Real};
+use std::{
+    iter::Sum,
+    ops::{Div, DivAssign},
+};
 
-pub fn deg_to_rad(deg: f32) -> f32 {
+pub fn deg_to_rad_f32(deg: f32) -> f32 {
     deg * std::f32::consts::PI / 180.
 }
 
-pub fn deg_to_rot(deg: f32) -> (f32, f32) {
-    let rad = deg_to_rad(deg);
-    (rad.cos(), rad.sin())
+pub fn deg_to_rad_f64(deg: f64) -> f64 {
+    deg * std::f64::consts::PI / 180.
 }
 
-pub fn mul_tuple2(lhs: (f32, f32), rhs: (f32, f32)) -> (f32, f32) {
+pub fn deg_to_rot_f32(deg: f32) -> Complex<f32> {
+    Complex::from_polar(1., Angle::from_degrees(deg))
+}
+
+pub fn deg_to_rot_f64(deg: f64) -> Complex<f64> {
+    Complex::from_polar(1., Angle::from_degrees(deg))
+}
+
+pub fn mul_tuple2_f32(lhs: (f32, f32), rhs: (f32, f32)) -> (f32, f32) {
+    (lhs.0 * rhs.0, lhs.1 * rhs.1)
+}
+
+pub fn mul_tuple2_f64(lhs: (f64, f64), rhs: (f64, f64)) -> (f64, f64) {
     (lhs.0 * rhs.0, lhs.1 * rhs.1)
 }
 
@@ -40,11 +55,28 @@ pub fn exp_dst(x: f32) -> f32 {
     }
 }
 
-pub fn notmalize_array_around_one<const N: usize>(mut v: [f32; N]) -> [f32; N] {
+pub fn notmalize_array_around_one<T, const N: usize>(mut v: [T; N]) -> [T; N]
+where
+    T: Div<Output = T>
+        + DivAssign
+        + Abs<Output = NonNeg<T>>
+        + FromUSize
+        + Pow<T, Output = T>
+        + IsPositive
+        + Two
+        + Clone
+        + Sum,
+    Positive<T>: Log2<Output = T>,
+{
     //let c_0 = max / 1.;
     //let c_1 = 1. / min;
 
-    let c = (2_f32).pow(v.iter().map(|x| x.abs().log2()).sum::<f32>() / N as f32);
+    let c = T::two().pow(
+        v.iter()
+            .map(|x| Positive::try_from(x.clone().abs()).ok().unwrap().log2())
+            .sum::<T>()
+            / T::from_usize(N),
+    );
 
     // 100000000 = 8
     // 100 = 2
@@ -58,7 +90,7 @@ pub fn notmalize_array_around_one<const N: usize>(mut v: [f32; N]) -> [f32; N] {
     //println!("c: {}", c);
 
     for i in 0..N {
-        v[i] /= c;
+        v[i] /= c.clone();
     }
     v
 }
@@ -67,28 +99,3 @@ pub fn notmalize_array_around_one<const N: usize>(mut v: [f32; N]) -> [f32; N] {
 //
 
 // arr.max(|x| x * c)
-
-pub struct RelativeDuration {
-    duration: Duration,
-    sign: i8,
-}
-
-impl RelativeDuration {
-    pub fn from_secs_f32(secs: f32) -> Self {
-        Self {
-            duration: Duration::from_secs_f32(secs.abs()),
-            sign: secs.signum() as i8,
-        }
-    }
-
-    pub const fn from_secs(secs: u64) -> Self {
-        Self {
-            duration: Duration::from_secs(secs),
-            sign: 1,
-        }
-    }
-
-    pub const fn as_secs_f32(&self) -> f32 {
-        self.duration.as_secs_f32() * self.sign as f32
-    }
-}

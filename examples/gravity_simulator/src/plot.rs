@@ -72,7 +72,7 @@ fn draw_plot<C>(
     colors: [C; 2],
     magnification: (f32, f32),
     current_k: f32,
-    common_tangents: &[(Line, TangentDirection)],
+    common_tangents: &[(Line<f32>, TangentDirection)],
 ) where
     C: IntoLinSrgba<ColorScalar> + Clone,
 {

@@ -1,4 +1,4 @@
-use burbomath::{Angle, Complex, DeltaAngle, NonNeg, Sq, Vector, Zero};
+use burbomath::{non_neg, Angle, Complex, DeltaAngle, NonNeg, Sq, Vector, Zero};
 use core::f32;
 use nannou::math::{partial_max, partial_min};
 use std::{
@@ -174,8 +174,8 @@ impl KinematicBody {
         } else {
             // decelerate to 0
             let t = dst.abs().radians() / self.rotation_velocity.abs().radians();
-            let acc = dst.abs() / (t.sq() / 2.);
-            acc * (-self.rotation_velocity).radians().signum()
+            let acc = dst.abs() / (t.sq() / non_neg!(2.));
+            acc.into_inner() * (-self.rotation_velocity).radians().signum()
         };
 
         // contrain acceleration

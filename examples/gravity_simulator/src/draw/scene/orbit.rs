@@ -1,5 +1,6 @@
 use core::f32;
 
+use burbomath::{NonNeg, Pi, Two};
 use nannou::{color::Rgb, Draw};
 
 use crate::{draw::common::draw_fading_ellipse, orbit::EllipticOrbit};
@@ -13,7 +14,7 @@ pub fn draw_elliptic_orbit(
     draw_fading_ellipse(
         draw,
         &orbit.ellipse,
-        orbit.anomaly.radians() / (2. * f32::consts::PI),
+        orbit.anomaly.radians() / (NonNeg::<f32>::two() * NonNeg::<f32>::pi()),
         color,
         compensatory_scale,
     );

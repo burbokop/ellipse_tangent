@@ -3,11 +3,12 @@ use std::ops::Range;
 mod md_array;
 mod plot;
 
+use burbomath::{Angle, Point};
 use chromosome::{Chromosome, Fitness, FitnessSelector, SimulationIter};
 use ellipse_tangent::{
     ellipse::{Ellipse, TangentDirection},
     line::Line,
-    utils::deg_to_rot,
+    utils::deg_to_rot_f64,
 };
 use nannou::{
     draw::{primitive, Drawing},
@@ -20,20 +21,20 @@ use crate::md_array::MdArray;
 
 #[derive(Debug)]
 struct TangentFitness {
-    ellipse0: Ellipse,
-    ellipse1: Ellipse,
-    max_err: f32,
+    ellipse0: Ellipse<f64>,
+    ellipse1: Ellipse<f64>,
+    max_err: f64,
 }
 
 #[derive(Debug)]
 struct TangentSegmentFitness {
-    ellipse0: Ellipse,
-    ellipse1: Ellipse,
-    max_err: f32,
+    ellipse0: Ellipse<f64>,
+    ellipse1: Ellipse<f64>,
+    max_err: f64,
 }
 
 impl Fitness for TangentFitness {
-    type Value = f32;
+    type Value = f64;
 
     fn fitness(&self, chromosome: &Chromosome<Self::Value>) -> Self::Value {
         let line = Line {
@@ -51,7 +52,7 @@ impl Fitness for TangentFitness {
 }
 
 impl Fitness for TangentSegmentFitness {
-    type Value = f32;
+    type Value = f64;
 
     fn fitness(&self, chromosome: &Chromosome<Self::Value>) -> Self::Value {
         match Line::from_points(
@@ -62,8 +63,8 @@ impl Fitness for TangentSegmentFitness {
         ) {
             Some(line) => (self.ellipse0.intersection_discriminant(line).abs()
                 + self.ellipse1.intersection_discriminant(line).abs()
-                + self.ellipse0.eq()(chromosome.genes[0], chromosome.genes[1]).abs()
-                + self.ellipse1.eq()(chromosome.genes[2], chromosome.genes[3]).abs())
+                + self.ellipse0.eq()((chromosome.genes[0], chromosome.genes[1]).into()).abs()
+                + self.ellipse1.eq()((chromosome.genes[2], chromosome.genes[3]).into()).abs())
             .abs(),
             None => Self::Value::MAX,
         }
@@ -75,31 +76,30 @@ impl Fitness for TangentSegmentFitness {
 }
 
 struct Settings {
-    theta: f32,
-    scale: f32,
+    theta: f64,
+    scale: f64,
 }
 
 struct EllipseState {
-    ellipse: Ellipse,
+    ellipse: Ellipse<f64>,
     is_grabbed_to_move: bool,
     is_grabbed_to_rotate: bool,
     is_grabbed_to_scale: bool,
 }
 
 impl EllipseState {
-    fn update(&mut self, cursor_pos: Point2) -> bool {
+    fn update(&mut self, cursor_pos: Point<f64>) -> bool {
         if self.is_grabbed_to_move {
-            self.ellipse.x = cursor_pos.x;
-            self.ellipse.y = cursor_pos.y;
+            self.ellipse = self.ellipse.with_center(cursor_pos);
             true
         } else if self.is_grabbed_to_rotate {
-            let rt = deg_to_rot(cursor_pos.x);
-            self.ellipse.r = rt.0;
-            self.ellipse.i = rt.1;
+            let rt = deg_to_rot_f64(*cursor_pos.x());
+            self.ellipse = self.ellipse.with_rotation(rt);
             true
         } else if self.is_grabbed_to_scale {
-            self.ellipse.a = cursor_pos.x / 10.;
-            self.ellipse.b = cursor_pos.y / 10.;
+            self.ellipse = self
+                .ellipse
+                .with_axes((cursor_pos - Point::origin()) / 10_f64);
             true
         } else {
             false
@@ -115,15 +115,15 @@ struct Windows {
 struct Model<R: rand::RngCore> {
     e0: EllipseState,
     e1: EllipseState,
-    common_tangents: Vec<(Line, TangentDirection)>,
-    cursor_pos: Point2,
-    sim: SimulationIter<f32, Range<f32>, FitnessSelector<TangentFitness>, R>,
-    population: Vec<Chromosome<f32>>,
+    common_tangents: Vec<(Line<f64>, TangentDirection)>,
+    cursor_pos: Point<f64>,
+    sim: SimulationIter<f64, Range<f64>, FitnessSelector<TangentFitness>, R>,
+    population: Vec<Chromosome<f64>>,
     settings: Settings,
     egui: Egui,
     image: DynamicImage,
     windows: Windows,
-    plot_magnification: (f32, f32),
+    plot_magnification: (f64, f64),
     plot_magnification_change_axis_y: bool,
 }
 
@@ -148,17 +148,25 @@ fn model(app: &App) -> Model<impl rand::RngCore> {
     let window = app.window(main_window_id).unwrap();
     let egui = Egui::from_window(&window);
 
-    let ellipse0 = Ellipse::new(100., 100., 40., 70., deg_to_rad(15.));
-    let ellipse1 = Ellipse::new(-30., -100., 20., 80., deg_to_rad(300.));
+    let ellipse0 = Ellipse::from_angle(
+        (100., 100.).into(),
+        (40., 70.).into(),
+        Angle::from_degrees(15.),
+    );
+    let ellipse1 = Ellipse::from_angle(
+        (-30., -100.).into(),
+        (20., 80.).into(),
+        Angle::from_degrees(300.),
+    );
 
     let initial_renge = -100.0..100.;
     let chromosome_size = 2;
 
     let initial_population = (0..8)
         .into_iter()
-        .map(|_| Chromosome::<f32>::new_random(chromosome_size, initial_renge.clone(), &mut rng));
+        .map(|_| Chromosome::<f64>::new_random(chromosome_size, initial_renge.clone(), &mut rng));
 
-    let sim: SimulationIter<f32, Range<f32>, _, _> = SimulationIter::new(
+    let sim: SimulationIter<f64, Range<f64>, _, _> = SimulationIter::new(
         vec![0.01..0.2, 0.1..20.],
         0.1,
         initial_population.collect(),
@@ -187,7 +195,7 @@ fn model(app: &App) -> Model<impl rand::RngCore> {
             is_grabbed_to_scale: false,
         },
         common_tangents: vec![],
-        cursor_pos: pt2(0., 0.),
+        cursor_pos: (0., 0.).into(),
         sim,
         population: vec![],
         settings: Settings {
@@ -218,14 +226,15 @@ fn fill_image<R: rand::RngCore>(app: &App, model: &mut Model<R>) {
             (pt.y - window_rect.y.start) as usize,
         )
     };
-    let pt_from_img = |x: usize, y: usize| {
-        pt2(
-            x as f32 + window_rect.x.start,
-            -(y as f32) - window_rect.y.start,
+    let pt_from_img = |x: usize, y: usize| -> Point<f64> {
+        (
+            x as f64 + window_rect.x.start as f64,
+            -(y as f64) - window_rect.y.start as f64,
         )
+            .into()
     };
 
-    let mut array: MdArray<f32, 2> = MdArray::new(
+    let mut array: MdArray<f64, 2> = MdArray::new(
         0.,
         model.image.width() as usize,
         model.image.height() as usize,
@@ -240,10 +249,10 @@ fn fill_image<R: rand::RngCore>(app: &App, model: &mut Model<R>) {
 
             *array.at_mut(x, y) = model.e0.ellipse.intersection_discriminant(Line {
                 k,
-                d: pt.y - k * pt.x,
+                d: pt.y() - k * pt.x(),
             }) * model.e1.ellipse.intersection_discriminant(Line {
                 k,
-                d: pt.y - k * pt.x,
+                d: pt.y() - k * pt.x(),
             })
         }
     }
@@ -340,8 +349,8 @@ fn draw_line_by_kd(draw: &Draw, k: f32, d: f32) -> Drawing<primitive::Line> {
     draw.line().points(pt2(x0, y0), pt2(x1, y1))
 }
 
-fn draw_line(draw: &Draw, line: Line) -> Drawing<primitive::Line> {
-    draw_line_by_kd(draw, line.k, line.d)
+fn draw_line(draw: &Draw, line: Line<f64>) -> Drawing<primitive::Line> {
+    draw_line_by_kd(draw, line.k as f32, line.d as f32)
 }
 
 fn raw_window_event<R: rand::RngCore>(
@@ -365,10 +374,11 @@ fn raw_window_event<R: rand::RngCore>(
                 position,
                 modifiers,
             } => {
-                model.cursor_pos = pt2(
-                    position.x as f32 / window_scale_factor as f32 + window_rect.x.start,
-                    -position.y as f32 / window_scale_factor as f32 - window_rect.y.start,
-                );
+                model.cursor_pos = (
+                    position.x / window_scale_factor as f64 + window_rect.x.start as f64,
+                    -position.y / window_scale_factor as f64 - window_rect.y.start as f64,
+                )
+                    .into();
 
                 if !model.e0.update(model.cursor_pos) {
                     model.e1.update(model.cursor_pos);
@@ -381,7 +391,7 @@ fn raw_window_event<R: rand::RngCore>(
                 modifiers,
             } => match state {
                 nannou::event::ElementState::Pressed => {
-                    if model.e0.ellipse.eq()(model.cursor_pos.x, model.cursor_pos.y) < 0. {
+                    if model.e0.ellipse.eq()(model.cursor_pos) < 0. {
                         match button {
                             MouseButton::Left => model.e0.is_grabbed_to_move = true,
                             MouseButton::Right => model.e0.is_grabbed_to_rotate = true,
@@ -389,7 +399,7 @@ fn raw_window_event<R: rand::RngCore>(
                             _ => {}
                         }
                     }
-                    if model.e1.ellipse.eq()(model.cursor_pos.x, model.cursor_pos.y) < 0. {
+                    if model.e1.ellipse.eq()(model.cursor_pos) < 0. {
                         match button {
                             MouseButton::Left => model.e1.is_grabbed_to_move = true,
                             MouseButton::Right => model.e1.is_grabbed_to_rotate = true,
@@ -415,14 +425,14 @@ fn raw_window_event<R: rand::RngCore>(
     }
 }
 
-fn draw_ellipse(draw: &Draw, ellipse: &Ellipse) {
+fn draw_ellipse(draw: &Draw, ellipse: &Ellipse<f64>) {
     draw.ellipse()
-        .x(ellipse.x)
-        .y(ellipse.y)
-        .w(ellipse.a * 2.)
-        .h(ellipse.b * 2.)
+        .x(*ellipse.x() as f32)
+        .y(*ellipse.y() as f32)
+        .w((*ellipse.a() * 2.) as f32)
+        .h((*ellipse.b() * 2.) as f32)
         .color(WHITE)
-        .rotate(-f32::atan2(ellipse.i, ellipse.r));
+        .rotate(-f64::atan2(*ellipse.i(), *ellipse.r()) as f32);
 
     //for y in (ellipse.y - ellipse.b * 4.) as i32..(ellipse.y + ellipse.b * 4.) as i32 {
     //    for x in (ellipse.x - ellipse.a * 16.) as i32..(ellipse.x + ellipse.a * 16.) as i32 {
@@ -452,8 +462,8 @@ fn view<R: rand::RngCore>(app: &App, model: &Model<R>, frame: Frame) {
     //}
 
     for chromosome in &model.population {
-        let k = chromosome.genes[0].tan();
-        let d = chromosome.genes[1];
+        let k = chromosome.genes[0].tan() as f32;
+        let d = chromosome.genes[1] as f32;
         let p0 = pt2(start.x, k * start.x + d);
         let p1 = pt2(end.x, k * end.x + d);
         draw.line().points(p0, p1).color(PINK).stroke_weight(2.);
@@ -474,16 +484,16 @@ fn view<R: rand::RngCore>(app: &App, model: &Model<R>, frame: Frame) {
     //println!("e0d: {:?}", e0d);
     //println!("e1d: {:?}", e1d);
 
-    draw_line_by_kd(&draw, k, e0d.0)
+    draw_line_by_kd(&draw, k as f32, e0d.0 as f32)
         .stroke_weight(1.)
         .color(GREEN);
-    draw_line_by_kd(&draw, k, e0d.1)
+    draw_line_by_kd(&draw, k as f32, e0d.1 as f32)
         .stroke_weight(1.)
         .color(LIGHTGREEN);
-    draw_line_by_kd(&draw, k, e1d.0)
+    draw_line_by_kd(&draw, k as f32, e1d.0 as f32)
         .stroke_weight(1.)
         .color(BLUE);
-    draw_line_by_kd(&draw, k, e1d.1)
+    draw_line_by_kd(&draw, k as f32, e1d.1 as f32)
         .stroke_weight(1.)
         .color(LIGHTBLUE);
 
@@ -491,8 +501,8 @@ fn view<R: rand::RngCore>(app: &App, model: &Model<R>, frame: Frame) {
         .stroke(VIOLET)
         .stroke_weight(2.)
         .radius(5.)
-        .x(model.cursor_pos.x)
-        .y(model.cursor_pos.y)
+        .x(*model.cursor_pos.x() as f32)
+        .y(*model.cursor_pos.y() as f32)
         .color(BLACK);
 
     for t in &model.common_tangents {

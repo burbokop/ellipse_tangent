@@ -1,9 +1,10 @@
+use burbomath::Angle;
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
-use ellipse_tangent::{ellipse::Ellipse, utils::deg_to_rad};
+use ellipse_tangent::{ellipse::Ellipse};
 
 fn common_tangents(c: &mut Criterion) {
-    let ellipse0 = Ellipse::new(100., 100., 40., 70., deg_to_rad(15.));
-    let ellipse1 = Ellipse::new(-30., -100., 20., 80., deg_to_rad(300.));
+    let ellipse0 = Ellipse::from_angle((100., 100.).into(), (40., 70.).into(), Angle::from_degrees(15.));
+    let ellipse1 = Ellipse::from_angle((-30., -100.).into(), (20., 80.).into(), Angle::from_degrees(300.));
 
     c.bench_function("common_tangents", |b| {
         b.iter(|| ellipse0.common_tangents(black_box(&ellipse1)))

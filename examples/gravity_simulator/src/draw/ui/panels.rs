@@ -1,7 +1,6 @@
 use std::time::Duration;
 
-use burbomath::{NonNeg, Rect, Vector};
-use ellipse_tangent::utils::RelativeDuration;
+use burbomath::{time::RelativeDuration, NonNeg, Rect, Vector};
 use nannou::{
     color::{Rgba8, RED, WHITE},
     Draw,
@@ -163,7 +162,7 @@ pub fn draw_nav_circle(
 
 pub struct FlightInfoData {
     pub velocity: NonNeg<f32>,
-    pub apoapsis: f32,
+    pub apoapsis: NonNeg<f32>,
     pub periapsis: f32,
     pub delta_v_capacity: f32,
     pub delta_v_needed_for_manuever: f32,

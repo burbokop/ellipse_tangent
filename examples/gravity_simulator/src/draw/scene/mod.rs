@@ -13,7 +13,7 @@ use crate::{
     vessel::Vessel,
     Model, G, PALLETE,
 };
-use burbomath::{physics::Kg, Angle, Vector};
+use burbomath::{Angle, NonNeg, Vector, physics::Kg};
 use ellipse_tangent::ellipse::Ellipse;
 use nannou::{
     color::{Alpha, Rgb, BLACK, BLUEVIOLET, CYAN, MAGENTA, RED, YELLOW},
@@ -26,9 +26,9 @@ mod vessel;
 
 fn draw_ellipse(
     draw: &Draw,
-    ellipse: &Ellipse,
+    ellipse: &Ellipse<f32>,
     vessel: &Vessel,
-    t: f32,
+    t: NonNeg<f32>,
     delta_v: Vector<f32>,
     name: &str,
     compensatory_scale: f32,
@@ -55,7 +55,7 @@ fn draw_ellipse(
 
     let f0 = ellipse.f0();
     let f1 = ellipse.f1();
-    let focal_point_size = ellipse.a.abs().min(ellipse.b.abs()) / 10.;
+    let focal_point_size = ellipse.a().abs().min(ellipse.b().abs()) / 10.;
 
     draw.ellipse()
         .x(*f0.x())
@@ -70,7 +70,7 @@ fn draw_ellipse(
         .radius(focal_point_size)
         .color(BLUEVIOLET);
 
-    let p = ellipse.point_on_ellipse(Angle::from_degrees(t * 360.));
+    let p = ellipse.point_on_ellipse(Angle::from_degrees(t.into_inner() * 360.));
     draw.x(*p.x())
         .y(*p.y())
         .scale(compensatory_scale)
@@ -79,12 +79,12 @@ fn draw_ellipse(
         .color(CYAN);
 
     let acc = ellipse.acc(
-        Angle::from_degrees(t * 360.),
+        Angle::from_degrees(t.into_inner() * 360.),
         celestial_body_mass.clone(),
         G,
     );
     let vel = ellipse.tangential_velocity(
-        Angle::from_degrees(t * 360.),
+        Angle::from_degrees(t.into_inner() * 360.),
         celestial_body_mass.clone(),
         G,
     );
@@ -127,7 +127,7 @@ fn draw_ellipse(
     );
 
     let (_excentricity, new_f1) = ellipse.f1_from_tangential_velocity(
-        Angle::from_degrees(t * 360.),
+        Angle::from_degrees(t.into_inner() * 360.),
         celestial_body_mass.clone(),
         G,
         vel + delta_v,
@@ -176,13 +176,13 @@ fn draw_ellipse(
     //         alpha: 0.4,
     //     });
 
-    draw.x(ellipse.x)
-        .y(ellipse.y)
+    draw.x(*ellipse.x())
+        .y(*ellipse.y())
         .scale(compensatory_scale)
         .text(name)
         .color(BLACK);
 
-    let new_t = t / ellipse.perimeter() * new_ellipse.perimeter();
+    let new_t = NonNeg::new(t.into_inner() / ellipse.perimeter() * new_ellipse.perimeter()).unwrap();
 
     draw_fading_ellipse(
         draw,
@@ -192,7 +192,7 @@ fn draw_ellipse(
         compensatory_scale,
     );
 
-    let new_p = new_ellipse.point_on_ellipse(Angle::from_degrees(new_t * 360.));
+    let new_p = new_ellipse.point_on_ellipse(Angle::from_degrees(new_t.into_inner() * 360.));
     draw.x(*new_p.x())
         .y(*new_p.y())
         .scale(compensatory_scale)
