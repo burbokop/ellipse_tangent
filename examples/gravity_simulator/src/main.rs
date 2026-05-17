@@ -35,13 +35,14 @@ use burbomath::{
     camera::Camera,
     non_neg,
     physics::{Kg, M, M3},
+    time::RelativeDuration,
     Angle, Complex, DeltaAngle, NonNeg, Pi, Point, Vector,
 };
 use core::f32;
 use ellipse_tangent::{
     ellipse::{Ellipse, TangentDirection},
     line::Line,
-    utils::{deg_to_rot, RelativeDuration},
+    utils::deg_to_rot_f32,
 };
 use nannou::{
     image::{DynamicImage, RgbaImage},
@@ -67,7 +68,7 @@ struct Settings {
 }
 
 struct EllipseState {
-    ellipse: Ellipse,
+    ellipse: Ellipse<f32>,
     theta: Angle<f32>,
     is_grabbed_to_move: bool,
     is_grabbed_to_rotate: bool,
@@ -77,17 +78,16 @@ struct EllipseState {
 impl EllipseState {
     fn update(&mut self, cursor_pos: Point<f32>) -> bool {
         if self.is_grabbed_to_move {
-            self.ellipse.x = *cursor_pos.x();
-            self.ellipse.y = *cursor_pos.y();
+            self.ellipse = self.ellipse.with_center(cursor_pos);
             true
         } else if self.is_grabbed_to_rotate {
-            let rt = deg_to_rot(*cursor_pos.x());
-            self.ellipse.r = rt.0;
-            self.ellipse.i = rt.1;
+            let rt = deg_to_rot_f32(*cursor_pos.x());
+            self.ellipse = self.ellipse.with_rotation(rt);
             true
         } else if self.is_grabbed_to_scale {
-            self.ellipse.a = *cursor_pos.x() / 10.;
-            self.ellipse.b = *cursor_pos.y() / 10.;
+            self.ellipse = self
+                .ellipse
+                .with_axes((cursor_pos - Point::origin()) / 10_f32);
             true
         } else {
             false
@@ -103,7 +103,7 @@ struct Windows {
 struct OldStuff {
     e0: EllipseState,
     e1: EllipseState,
-    common_tangents: Vec<(Line, TangentDirection)>,
+    common_tangents: Vec<(Line<f32>, TangentDirection)>,
     settings: Settings,
     image: DynamicImage,
     plot_magnification: (f32, f32),
@@ -148,10 +148,18 @@ fn model(app: &App) -> Model<impl rand::RngCore> {
 
     let egui = Egui::from_window(&window);
 
-    let ellipse0 = Ellipse::new(100., 100., 40., 70., deg_to_rad(15.));
+    let ellipse0 = Ellipse::from_angle(
+        (100., 100.).into(),
+        (40., 70.).into(),
+        Angle::from_degrees(15_f32),
+    );
     // let ellipse1 = Ellipse::new(-30., -100., 20., 80., deg_to_rad(300.));
 
-    let ellipse1 = Ellipse::new(-30., -100., 200., 190., deg_to_rad(0.));
+    let ellipse1 = Ellipse::from_angle(
+        (-30., -100.).into(),
+        (200., 190.).into(),
+        Angle::from_degrees(0_f32),
+    );
 
     let body = Rc::new(CelestialBody::from_density(
         Kg(5513.) / M3(1.),
@@ -248,10 +256,12 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
 
         let dt = Duration::from_secs_f32(update.since_last.as_secs_f32() * model.time_speed);
 
-        let _e0_focal_len =
-            (model.old_stuff.e0.ellipse.a.pow(2.) - model.old_stuff.e0.ellipse.b.pow(2.)).sqrt();
-        let _e1_focal_len =
-            (model.old_stuff.e1.ellipse.a.pow(2.) - model.old_stuff.e1.ellipse.b.pow(2.)).sqrt();
+        let _e0_focal_len = (model.old_stuff.e0.ellipse.a().pow(2.)
+            - model.old_stuff.e0.ellipse.b().pow(2.))
+        .sqrt();
+        let _e1_focal_len = (model.old_stuff.e1.ellipse.a().pow(2.)
+            - model.old_stuff.e1.ellipse.b().pow(2.))
+        .sqrt();
 
         let angular_velocity0 = model.old_stuff.e0.ellipse.angular_velocity(
             Angle::from_degrees(*theta0),
@@ -436,11 +446,11 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
         model.old_stuff.e1.theta = Angle::from_degrees(*theta1);
     }
 
-    model.old_stuff.common_tangents = model
-        .old_stuff
-        .e0
-        .ellipse
-        .common_tangents(&model.old_stuff.e1.ellipse);
+    // model.old_stuff.common_tangents = model
+    //     .old_stuff
+    //     .e0
+    //     .ellipse
+    //     .common_tangents(&model.old_stuff.e1.ellipse);
 }
 
 fn produce_ui_data<R: rand::RngCore>(model: &Model<R>) -> UIData {

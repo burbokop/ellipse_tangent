@@ -3,9 +3,10 @@ use std::{rc::Weak, time::Duration};
 
 use burbomath::{
     physics::{Kg, KgPerM3, M},
+    time::RelativeDuration,
     Angle, Vector,
 };
-use ellipse_tangent::{ellipse::Ellipse, utils::RelativeDuration};
+use ellipse_tangent::ellipse::Ellipse;
 use nannou::color::Rgba8;
 
 use crate::G;
@@ -42,7 +43,7 @@ impl CelestialBody {
 #[derive(Debug, Clone)]
 pub struct EllipticOrbit {
     pub body: Weak<CelestialBody>,
-    pub ellipse: Ellipse,
+    pub ellipse: Ellipse<f32>,
     pub anomaly: Angle<f32>,
 }
 
@@ -96,7 +97,8 @@ impl EllipticOrbit {
 
         let new_ellipse = Ellipse::from_foci(f0, new_f1, p);
         let new_anomaly = Angle::from_radians(
-            delta_v_anomaly.radians() / self.ellipse.perimeter() * new_ellipse.perimeter(),
+            delta_v_anomaly.radians().into_inner() / self.ellipse.perimeter()
+                * new_ellipse.perimeter(),
         );
 
         EllipticOrbit {

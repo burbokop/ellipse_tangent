@@ -220,47 +220,47 @@ pub fn event<R: rand::RngCore>(app: &App, model: &mut Model<R>, event: Event) {
                             model.old_stuff.e1.update(ctx.mouse_position_in_world_space);
                         }
                     }
-                    MousePressed(button) => {
-                        return;
+                    MousePressed(_button) => {
+                        // return;
 
-                        if model.old_stuff.e0.ellipse.eq()(
-                            *model
-                                .event_handler_context
-                                .mouse_position_in_world_space
-                                .x() as f32,
-                            *model
-                                .event_handler_context
-                                .mouse_position_in_world_space
-                                .y() as f32,
-                        ) < 0.
-                        {
-                            match button {
-                                MouseButton::Left => model.old_stuff.e0.is_grabbed_to_move = true,
-                                MouseButton::Right => {
-                                    model.old_stuff.e0.is_grabbed_to_rotate = true
-                                }
-                                MouseButton::Middle => {
-                                    model.old_stuff.e0.is_grabbed_to_scale = true
-                                }
-                                _ => {}
-                            }
-                        }
-                        if model.old_stuff.e1.ellipse.eq()(
-                            *ctx.mouse_position_in_world_space.x() as f32,
-                            *ctx.mouse_position_in_world_space.y() as f32,
-                        ) < 0.
-                        {
-                            match button {
-                                MouseButton::Left => model.old_stuff.e1.is_grabbed_to_move = true,
-                                MouseButton::Right => {
-                                    model.old_stuff.e1.is_grabbed_to_rotate = true
-                                }
-                                MouseButton::Middle => {
-                                    model.old_stuff.e1.is_grabbed_to_scale = true
-                                }
-                                _ => {}
-                            }
-                        }
+                        // if model.old_stuff.e0.ellipse.eq()(
+                        //     *model
+                        //         .event_handler_context
+                        //         .mouse_position_in_world_space
+                        //         .x() as f32,
+                        //     *model
+                        //         .event_handler_context
+                        //         .mouse_position_in_world_space
+                        //         .y() as f32,
+                        // ) < 0.
+                        // {
+                        //     match button {
+                        //         MouseButton::Left => model.old_stuff.e0.is_grabbed_to_move = true,
+                        //         MouseButton::Right => {
+                        //             model.old_stuff.e0.is_grabbed_to_rotate = true
+                        //         }
+                        //         MouseButton::Middle => {
+                        //             model.old_stuff.e0.is_grabbed_to_scale = true
+                        //         }
+                        //         _ => {}
+                        //     }
+                        // }
+                        // if model.old_stuff.e1.ellipse.eq()(
+                        //     *ctx.mouse_position_in_world_space.x() as f32,
+                        //     *ctx.mouse_position_in_world_space.y() as f32,
+                        // ) < 0.
+                        // {
+                        //     match button {
+                        //         MouseButton::Left => model.old_stuff.e1.is_grabbed_to_move = true,
+                        //         MouseButton::Right => {
+                        //             model.old_stuff.e1.is_grabbed_to_rotate = true
+                        //         }
+                        //         MouseButton::Middle => {
+                        //             model.old_stuff.e1.is_grabbed_to_scale = true
+                        //         }
+                        //         _ => {}
+                        //     }
+                        // }
                     }
                     MouseReleased(mouse_button) => {
                         model.old_stuff.e0.is_grabbed_to_move = false;

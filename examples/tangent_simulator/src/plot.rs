@@ -1,15 +1,12 @@
 use ellipse_tangent::{
     ellipse::TangentDirection,
     line::Line,
-    utils::{deg_to_rad, mul_tuple2},
+    utils::{deg_to_rad_f64, mul_tuple2_f64},
 };
 use nannou::{
-    color::{
-        IntoLinSrgba, Srgb, BLACK, BLUE, DARKSLATEGREY, LIGHTBLUE, LIGHTPINK, RED, VIOLET, WHITE,
-        YELLOW,
-    },
+    color::{IntoLinSrgba, BLACK, BLUE, LIGHTBLUE, LIGHTPINK, RED, VIOLET, WHITE, YELLOW},
     draw::properties::ColorScalar,
-    event::{ElementState, MouseButton},
+    event::ElementState,
     geom::pt2,
     math::num_traits::Pow,
     window::Id,
@@ -44,7 +41,7 @@ fn raw_window_event<R: rand::RngCore>(
                 phase,
                 modifiers,
             } => {
-                let sensitivity = 1.1_f32;
+                let sensitivity = 1.1_f64;
                 match delta {
                     nannou::event::MouseScrollDelta::LineDelta(_, y) => {
                         if model.plot_magnification_change_axis_y {
@@ -72,11 +69,11 @@ fn raw_window_event<R: rand::RngCore>(
 
 fn draw_plot<C>(
     draw: &Draw,
-    fun: impl Fn(f32) -> (f32, f32),
+    fun: impl Fn(f64) -> (f64, f64),
     colors: [C; 2],
-    magnification: (f32, f32),
-    current_k: f32,
-    common_tangents: &[(Line, TangentDirection)],
+    magnification: (f64, f64),
+    current_k: f64,
+    common_tangents: &[(Line<f64>, TangentDirection)],
 ) where
     C: IntoLinSrgba<ColorScalar> + Clone,
 {
@@ -84,18 +81,28 @@ fn draw_plot<C>(
     let mut prev = (0., 0.);
     let mut has_prev: bool = false;
     for i in -500..500 {
-        let k = i as f32 / magnification.0;
+        let k = i as f64 / magnification.0;
         let x = i as f32;
         let v = fun(k);
         let v = (v.0 * magnification.1, v.1 * magnification.1);
 
         if has_prev {
-            draw.line()
-                .points(pt2(prev_k, prev.0), pt2(x, v.0))
-                .color(colors[0].clone());
-            draw.line()
-                .points(pt2(prev_k, prev.1), pt2(x, v.1))
-                .color(colors[1].clone());
+            {
+                let p0 = pt2(prev_k, prev.0 as f32);
+                let p1 = pt2(x, v.0 as f32);
+                assert!(p0.x.is_finite());
+                assert!(p0.y.is_finite());
+                assert!(p1.x.is_finite());
+                assert!(p1.y.is_finite());
+                draw.line().points(p0, p1).color(colors[0].clone());
+            }
+            {
+                let p0 = pt2(prev_k, prev.1 as f32);
+                let p1 = pt2(x, v.1 as f32);
+                if p0.x.is_finite() && p0.y.is_finite() && p1.x.is_finite() && p1.y.is_finite() {
+                    draw.line().points(p0, p1).color(colors[1].clone());
+                }
+            }
         }
 
         prev_k = x;
@@ -117,16 +124,16 @@ fn draw_plot<C>(
             .radius(3.)
             .stroke(VIOLET)
             .stroke_weight(1.)
-            .x(x)
-            .y(y.0)
+            .x(x as f32)
+            .y(y.0 as f32)
             .color(color);
 
         draw.ellipse()
             .radius(3.)
             .stroke(VIOLET)
             .stroke_weight(1.)
-            .x(x)
-            .y(y.1)
+            .x(x as f32)
+            .y(y.1 as f32)
             .color(color);
     }
 
@@ -136,14 +143,14 @@ fn draw_plot<C>(
         let current_y = (current_v.0 * magnification.1, current_v.1 * magnification.1);
         draw.ellipse()
             .radius(3.)
-            .x(current_x)
-            .y(current_y.0)
+            .x(current_x as f32)
+            .y(current_y.0 as f32)
             .color(colors[0].clone());
 
         draw.ellipse()
             .radius(3.)
-            .x(current_x)
-            .y(current_y.1)
+            .x(current_x as f32)
+            .y(current_y.1 as f32)
             .color(colors[1].clone());
     }
 }
@@ -153,12 +160,12 @@ fn view<R: rand::RngCore>(app: &App, model: &Model<R>, frame: Frame) {
     draw.background().color(BLACK);
     let rect = app.window(model.windows.plot_window).unwrap().rect();
 
-    let k = deg_to_rad(model.settings.theta).tan();
+    let k = deg_to_rad_f64(model.settings.theta).tan();
 
     draw_plot(
         &draw,
         |k| {
-            mul_tuple2(
+            mul_tuple2_f64(
                 model.e0.ellipse.outer_tangents_fun(&model.e1.ellipse, k),
                 (2., 2.),
             )

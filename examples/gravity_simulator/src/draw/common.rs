@@ -1,6 +1,6 @@
 use std::{f32::consts::PI, ops::Deref as _, time::Duration};
 
-use burbomath::{Angle, Complex, Point, Vector};
+use burbomath::{Angle, Complex, NonNeg, Point, Vector};
 use ellipse_tangent::{ellipse::Ellipse, line::Line};
 use nannou::{
     color::{IntoLinSrgba, Rgb, Rgba, Rgba8},
@@ -10,18 +10,18 @@ use nannou::{
     Draw,
 };
 
-use crate::{utils::color_from_hex, FONT};
+use crate::FONT;
 
 /// t - from 0 to 1
 pub(crate) fn draw_fading_ellipse(
     draw: &Draw,
-    ellipse: &Ellipse,
-    t: f32,
+    ellipse: &Ellipse<f32>,
+    t: NonNeg<f32>,
     color: Rgb,
     compensatory_scale: f32,
 ) {
-    let radius_x = ellipse.a;
-    let radius_y = ellipse.b;
+    let radius_x = *ellipse.a();
+    let radius_y = *ellipse.b();
 
     let num_points: usize = 1000; // Resolution of the ellipse
 
@@ -33,9 +33,9 @@ pub(crate) fn draw_fading_ellipse(
         // Ellipse formula
 
         let pos = Complex::from_uneven_polar((radius_x, radius_y).into(), angle)
-            * Complex::from_cartesian(ellipse.r, ellipse.i)
+            * Complex::from_cartesian(*ellipse.r(), *ellipse.i())
             * Complex::from_cartesian(0., 1.)
-            + Complex::from_cartesian(ellipse.x, ellipse.y);
+            + Complex::from_cartesian(*ellipse.x(), *ellipse.y());
 
         // let x = angle.cos() * radius_x + ellipse.x;
         // let y = angle.sin() * radius_y + ellipse.y;
@@ -44,7 +44,7 @@ pub(crate) fn draw_fading_ellipse(
         // [See Nannou HSL color documentation](https://docs.rs)
         let point_time = i as f32 / num_points as f32;
 
-        let time = (-t - point_time).rem_euclid(1.);
+        let time = (-t.into_inner() - point_time).rem_euclid(1.);
 
         let color = Rgba::from_components((color.red, color.green, color.blue, time));
 
@@ -72,7 +72,7 @@ pub fn draw_line_by_kd<'a>(draw: &'a Draw, k: f32, d: f32) -> Drawing<'a, primit
     draw.line().points(pt2(x0, y0), pt2(x1, y1))
 }
 
-pub fn draw_line<'a>(draw: &'a Draw, line: Line) -> Drawing<'a, primitive::Line> {
+pub fn draw_line<'a>(draw: &'a Draw, line: Line<f32>) -> Drawing<'a, primitive::Line> {
     draw_line_by_kd(draw, line.k, line.d)
 }
 
