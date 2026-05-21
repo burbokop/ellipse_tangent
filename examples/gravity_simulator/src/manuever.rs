@@ -23,7 +23,7 @@ impl Manuever {
         let tangential_velocity = initial_orbit
             .ellipse
             .tangential_velocity(self.delta_v_anomaly, body.mass, gravitational_constant)
-            .norm();
+            .unwrap();
 
         self.relative_delta_v * tangential_velocity.rotor()
     }
@@ -32,36 +32,14 @@ impl Manuever {
         Duration::from_secs_f32((self.relative_delta_v.len() / acceleration).into_inner())
     }
 
-    pub fn move_start_anomaly_forward(
-        &mut self,
-        initial_orbit: &EllipticOrbit,
-        dt: Duration,
-        gravitational_constant: f32,
-    ) {
+    pub fn move_start_anomaly_forward(&mut self, dt: Duration) {
         self.delta_v_anomaly +=
             DeltaAngle::from_radians(ANOMALY_CHANGE_SPEED_FACTOR) * dt.as_secs_f32();
-
-        self.orbit = initial_orbit.accelerated_at_anomaly(
-            self.delta_v(initial_orbit, gravitational_constant),
-            self.delta_v_anomaly,
-            gravitational_constant,
-        );
     }
 
-    pub fn move_start_anomaly_backward(
-        &mut self,
-        initial_orbit: &EllipticOrbit,
-        dt: Duration,
-        gravitational_constant: f32,
-    ) {
+    pub fn move_start_anomaly_backward(&mut self, dt: Duration) {
         self.delta_v_anomaly -=
             DeltaAngle::from_radians(ANOMALY_CHANGE_SPEED_FACTOR) * dt.as_secs_f32();
-
-        self.orbit = initial_orbit.accelerated_at_anomaly(
-            self.delta_v(initial_orbit, gravitational_constant),
-            self.delta_v_anomaly,
-            gravitational_constant,
-        );
     }
 
     pub fn accelerate_towards_prograde(
@@ -71,22 +49,15 @@ impl Manuever {
         gravitational_constant: f32,
     ) {
         let body = initial_orbit.body.upgrade().unwrap();
-        let tangential_velocity = initial_orbit.ellipse.tangential_velocity(
-            self.delta_v_anomaly,
-            body.mass,
-            gravitational_constant,
-        );
+        let tangential_velocity = initial_orbit
+            .ellipse
+            .tangential_velocity(self.delta_v_anomaly, body.mass, gravitational_constant)
+            .unwrap();
 
         self.relative_delta_v += Vector::from((1., 0.))
             * tangential_velocity.len().into_inner()
             * VELOCITY_CHANGE_SPEED_FACTOR
             * dt.as_secs_f32();
-
-        self.orbit = initial_orbit.accelerated_at_anomaly(
-            self.delta_v(initial_orbit, gravitational_constant),
-            self.delta_v_anomaly,
-            gravitational_constant,
-        );
     }
 
     pub fn accelerate_towards_retrograde(
@@ -96,22 +67,15 @@ impl Manuever {
         gravitational_constant: f32,
     ) {
         let body = initial_orbit.body.upgrade().unwrap();
-        let tangential_velocity = initial_orbit.ellipse.tangential_velocity(
-            self.delta_v_anomaly,
-            body.mass,
-            gravitational_constant,
-        );
+        let tangential_velocity = initial_orbit
+            .ellipse
+            .tangential_velocity(self.delta_v_anomaly, body.mass, gravitational_constant)
+            .unwrap();
 
         self.relative_delta_v += Vector::from((-1., 0.))
             * tangential_velocity.len().into_inner()
             * VELOCITY_CHANGE_SPEED_FACTOR
             * dt.as_secs_f32();
-
-        self.orbit = initial_orbit.accelerated_at_anomaly(
-            self.delta_v(initial_orbit, gravitational_constant),
-            self.delta_v_anomaly,
-            gravitational_constant,
-        );
     }
 
     pub fn accelerate_towards_radial_in(
@@ -121,22 +85,15 @@ impl Manuever {
         gravitational_constant: f32,
     ) {
         let body = initial_orbit.body.upgrade().unwrap();
-        let tangential_velocity = initial_orbit.ellipse.tangential_velocity(
-            self.delta_v_anomaly,
-            body.mass,
-            gravitational_constant,
-        );
+        let tangential_velocity = initial_orbit
+            .ellipse
+            .tangential_velocity(self.delta_v_anomaly, body.mass, gravitational_constant)
+            .unwrap();
 
         self.relative_delta_v += Vector::from((0., -1.))
             * tangential_velocity.len().into_inner()
             * VELOCITY_CHANGE_SPEED_FACTOR
             * dt.as_secs_f32();
-
-        self.orbit = initial_orbit.accelerated_at_anomaly(
-            self.delta_v(initial_orbit, gravitational_constant),
-            self.delta_v_anomaly,
-            gravitational_constant,
-        );
     }
 
     pub fn accelerate_towards_radial_out(
@@ -146,17 +103,18 @@ impl Manuever {
         gravitational_constant: f32,
     ) {
         let body = initial_orbit.body.upgrade().unwrap();
-        let tangential_velocity = initial_orbit.ellipse.tangential_velocity(
-            self.delta_v_anomaly,
-            body.mass,
-            gravitational_constant,
-        );
+        let tangential_velocity = initial_orbit
+            .ellipse
+            .tangential_velocity(self.delta_v_anomaly, body.mass, gravitational_constant)
+            .unwrap();
 
         self.relative_delta_v += Vector::from((0., 1.))
             * tangential_velocity.len().into_inner()
             * VELOCITY_CHANGE_SPEED_FACTOR
             * dt.as_secs_f32();
+    }
 
+    pub fn proceed(&mut self, initial_orbit: &EllipticOrbit, gravitational_constant: f32) {
         self.orbit = initial_orbit.accelerated_at_anomaly(
             self.delta_v(initial_orbit, gravitational_constant),
             self.delta_v_anomaly,

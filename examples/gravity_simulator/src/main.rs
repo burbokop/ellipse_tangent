@@ -157,14 +157,14 @@ fn model(app: &App) -> Model<impl rand::RngCore> {
 
     let ellipse1 = Ellipse::from_angle(
         (-30., -100.).into(),
-        (200., 190.).into(),
+        (2000., 1900.).into(),
         Angle::from_degrees(0_f32),
     );
 
     let body = Rc::new(CelestialBody::from_density(
         Kg(5513.) / M3(1.),
-        M(100.),
-        M(101.),
+        M(1000.),
+        M(1010.),
         Rgba8::from_components((153, 102, 51, 0xff)),
         Rgba8::from_components((51, 102, 204, 128)),
     ));
@@ -178,9 +178,9 @@ fn model(app: &App) -> Model<impl rand::RngCore> {
         vessel: Vessel {
             kinematic_body: KinematicBody::new(
                 DeltaAngle::from_radians(1.),
-                NonNeg::new(0.1 * 10.).unwrap(),
-                NonNeg::new(0.1 * 10.).unwrap(),
-                NonNeg::new(0.05 * 10.).unwrap(),
+                NonNeg::new(0.1 * 100.).unwrap(),
+                NonNeg::new(0.1 * 100.).unwrap(),
+                NonNeg::new(0.05 * 100.).unwrap(),
                 NonNeg::new(1000.).unwrap(),
             ),
         },
@@ -241,73 +241,75 @@ fn raw_window_event<R: rand::RngCore>(
 fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
     {
         let egui = &mut model.egui;
-        let settings = &mut model.old_stuff.settings;
+        // let settings = &mut model.old_stuff.settings;
         egui.set_elapsed_time(update.since_start);
         let _ctx = egui.begin_frame();
 
         let theta0 = &mut model.old_stuff.e0.theta.degrees();
         let theta1 = &mut model.old_stuff.e1.theta.degrees();
 
-        let theta_auto_change = &mut settings.theta_auto_change;
+        // let theta_auto_change = &mut settings.theta_auto_change;
 
-        let time_speed = &mut settings.time_speed;
-        let time_since_start =
-            Duration::from_secs_f32(update.since_start.as_secs_f32() * *time_speed);
+        // let time_speed = &mut settings.time_speed;
+        // let time_since_start =
+        //     Duration::from_secs_f32(update.since_start.as_secs_f32() * *time_speed);
 
         let dt = Duration::from_secs_f32(update.since_last.as_secs_f32() * model.time_speed);
 
-        let _e0_focal_len = (model.old_stuff.e0.ellipse.a().pow(2.)
-            - model.old_stuff.e0.ellipse.b().pow(2.))
-        .sqrt();
-        let _e1_focal_len = (model.old_stuff.e1.ellipse.a().pow(2.)
-            - model.old_stuff.e1.ellipse.b().pow(2.))
-        .sqrt();
+        // let _e0_focal_len = (model.old_stuff.e0.ellipse.a().pow(2.)
+        //     - model.old_stuff.e0.ellipse.b().pow(2.))
+        // .sqrt();
+        // let _e1_focal_len = (model.old_stuff.e1.ellipse.a().pow(2.)
+        //     - model.old_stuff.e1.ellipse.b().pow(2.))
+        // .sqrt();
 
-        let angular_velocity0 = model.old_stuff.e0.ellipse.angular_velocity(
-            Angle::from_degrees(*theta0),
-            model.body.mass.clone(),
-            G,
-        );
-        let angular_velocity1 = model.old_stuff.e1.ellipse.angular_velocity(
-            Angle::from_degrees(*theta1),
-            model.body.mass.clone(),
-            G,
-        );
-        if *theta_auto_change {
-            *theta0 += time_since_start.as_secs_f32() * angular_velocity0.degrees();
-            *theta1 += time_since_start.as_secs_f32() * angular_velocity1.degrees();
+        // let angular_velocity0 = model
+        //     .old_stuff
+        //     .e0
+        //     .ellipse
+        //     .angular_velocity(Angle::from_degrees(*theta0), model.body.mass.clone(), G)
+        //     .unwrap();
+        // let angular_velocity1 = model
+        //     .old_stuff
+        //     .e1
+        //     .ellipse
+        //     .angular_velocity(Angle::from_degrees(*theta1), model.body.mass.clone(), G)
+        //     .unwrap();
+        // if *theta_auto_change {
+        //     *theta0 += time_since_start.as_secs_f32() * angular_velocity0.degrees();
+        //     *theta1 += time_since_start.as_secs_f32() * angular_velocity1.degrees();
 
-            if settings.thrust_acceleration > 0.
-                && (settings.delta_v_len
-                    - settings.thrust_acceleration * time_since_start.as_secs_f32())
-                    >= 0.
-            {
-                let acc = Vector::from_polar(
-                    settings.thrust_acceleration,
-                    Angle::from_degrees(settings.delta_v_angle),
-                );
-                println!("acc: {:?}", acc);
+        //     if settings.thrust_acceleration > 0.
+        //         && (settings.delta_v_len
+        //             - settings.thrust_acceleration * time_since_start.as_secs_f32())
+        //             >= 0.
+        //     {
+        //         let acc = Vector::from_polar(
+        //             settings.thrust_acceleration,
+        //             Angle::from_degrees(settings.delta_v_angle),
+        //         );
+        //         println!("acc: {:?}", acc);
 
-                model.old_stuff.e0.ellipse = model.old_stuff.e0.ellipse.accelerated(
-                    Angle::from_degrees(*theta0),
-                    model.body.mass.clone(),
-                    G,
-                    time_since_start,
-                    acc,
-                );
-                model.old_stuff.e1.ellipse = model.old_stuff.e1.ellipse.accelerated(
-                    Angle::from_degrees(*theta1),
-                    model.body.mass.clone(),
-                    G,
-                    time_since_start,
-                    acc,
-                );
+        //         model.old_stuff.e0.ellipse = model.old_stuff.e0.ellipse.accelerated(
+        //             Angle::from_degrees(*theta0),
+        //             model.body.mass.clone(),
+        //             G,
+        //             time_since_start,
+        //             acc,
+        //         );
+        //         model.old_stuff.e1.ellipse = model.old_stuff.e1.ellipse.accelerated(
+        //             Angle::from_degrees(*theta1),
+        //             model.body.mass.clone(),
+        //             G,
+        //             time_since_start,
+        //             acc,
+        //         );
 
-                settings.delta_v_len -=
-                    settings.thrust_acceleration * time_since_start.as_secs_f32();
-                println!("settings.delta_v_len: {}", settings.delta_v_len);
-            }
-        }
+        //         settings.delta_v_len -=
+        //             settings.thrust_acceleration * time_since_start.as_secs_f32();
+        //         println!("settings.delta_v_len: {}", settings.delta_v_len);
+        //     }
+        // }
 
         if model.event_handler_context.center_on_vessel_mode() {
             let target_point = model
@@ -338,7 +340,7 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
                 model.vessel_orbit.body.upgrade().unwrap().mass.clone(),
                 G,
             )
-            .norm();
+            .unwrap();
 
         if model.event_handler_context.x_pressed() {
             model.vessel.kinematic_body.brake_rotation(dt);
@@ -383,9 +385,13 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
         model.vessel.kinematic_body.proceed(dt);
 
         if model.vessel.kinematic_body.acceleration().into_inner() > f32::EPSILON {
-            model
+            let delta_v = model
                 .vessel_orbit
                 .accelerate(model.vessel.kinematic_body.acceleration_vector(), dt);
+
+            if let Some(manuever) = &mut model.manuever {
+                manuever.relative_delta_v -= delta_v;
+            }
         }
 
         model.vessel_orbit.proceed(dt);
@@ -393,9 +399,9 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
         if model.event_handler_context.manuever_planner_mode() {
             if let Some(manuever) = &mut model.manuever {
                 if model.event_handler_context.less_pressed() {
-                    manuever.move_start_anomaly_backward(&model.vessel_orbit, dt, G);
+                    manuever.move_start_anomaly_backward(dt);
                 } else if model.event_handler_context.greater_pressed() {
-                    manuever.move_start_anomaly_forward(&model.vessel_orbit, dt, G);
+                    manuever.move_start_anomaly_forward(dt);
                 } else if model.event_handler_context.left_arrow_pressed() {
                     manuever.accelerate_towards_radial_out(&model.vessel_orbit, dt, G);
                 } else if model.event_handler_context.right_arrow_pressed() {
@@ -405,6 +411,8 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
                 } else if model.event_handler_context.down_arrow_pressed() {
                     manuever.accelerate_towards_retrograde(&model.vessel_orbit, dt, G);
                 }
+
+                manuever.proceed(&model.vessel_orbit, G);
             }
         }
 
@@ -463,7 +471,7 @@ fn produce_ui_data<R: rand::RngCore>(model: &Model<R>) -> UIData {
         .vessel_orbit
         .ellipse
         .tangential_velocity(model.vessel_orbit.anomaly, model.body.mass.clone(), G)
-        .norm();
+        .unwrap();
 
     let heading = model.vessel.kinematic_body.complex_heading();
 
@@ -473,10 +481,10 @@ fn produce_ui_data<R: rand::RngCore>(model: &Model<R>) -> UIData {
     let right_axis = top_axis * Complex::from_cartesian(0., 1.);
 
     let nav_data = NavCircleData {
-        prograde: tangential_velocity * top_axis,
-        retrograde: tangential_velocity * bottom_axis,
-        radial_in: tangential_velocity * left_axis,
-        radial_out: tangential_velocity * right_axis,
+        prograde: tangential_velocity.norm() * top_axis,
+        retrograde: tangential_velocity.norm() * bottom_axis,
+        radial_in: tangential_velocity.norm() * left_axis,
+        radial_out: tangential_velocity.norm() * right_axis,
         maneuver: if model.event_handler_context.manuever_planner_mode() {
             let manuever = model.manuever.as_ref().unwrap();
             let delta_v = manuever.delta_v(&model.vessel_orbit, G);

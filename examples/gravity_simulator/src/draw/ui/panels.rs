@@ -223,13 +223,19 @@ pub fn draw_flight_info(draw: &Draw, bb: Rect<f32>, data: &FlightInfoData) {
 
     draw_text(
         1,
-        &format!("Manuever Δv: {:.2} m/s", data.delta_v_needed_for_manuever),
+        &format!(
+            "Manuever Δv: {:.2} m/s (TODO)",
+            data.delta_v_needed_for_manuever
+        ),
         palette::MANEUVER_COLOR,
     );
 
     draw_text(
         0,
-        &format!("Time to trans: {:.2} s", data.time_to_next_transition_point),
+        &format!(
+            "Time to trans: {:.2} s (TODO)",
+            data.time_to_next_transition_point
+        ),
         palette::MANEUVER_COLOR,
     );
 }

@@ -20,21 +20,34 @@ pub fn draw_vessel(
     compensatory_scale: f32,
     duration_since_start: Duration,
 ) {
+    if orbit.ellipse.x().is_finite() && orbit.ellipse.y().is_finite() {
+        assert!(orbit.ellipse.a().is_finite());
+        assert!(orbit.ellipse.b().is_finite());
+        assert!(orbit.ellipse.r().is_finite());
+        assert!(orbit.ellipse.i().is_finite());
+    }
+
     let body = orbit.body.upgrade().unwrap();
 
     // let f0 = orbit.ellipse.f0();
     // let f1 = orbit.ellipse.f1();
 
     let p = orbit.ellipse.point_on_ellipse(orbit.anomaly);
+    if !(p.x().is_finite() && p.y().is_finite()) {
+        return;
+    }
 
     // let acc = orbit
     //     .ellipse
     //     .acc(orbit.anomaly, body.mass.clone(), gravitational_constant);
 
-    let vel =
-        orbit
-            .ellipse
-            .tangential_velocity(orbit.anomaly, body.mass.clone(), gravitational_constant);
+    let vel = orbit
+        .ellipse
+        .tangential_velocity(orbit.anomaly, body.mass.clone(), gravitational_constant)
+        .unwrap();
+
+    assert!(vel.x().is_finite());
+    assert!(vel.y().is_finite());
 
     draw_vector_with_icon(
         draw,

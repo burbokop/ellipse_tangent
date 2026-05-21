@@ -13,7 +13,7 @@ use crate::{
     vessel::Vessel,
     Model, G, PALLETE,
 };
-use burbomath::{Angle, NonNeg, Vector, physics::Kg};
+use burbomath::{physics::Kg, Angle, NonNeg, Vector};
 use ellipse_tangent::ellipse::Ellipse;
 use nannou::{
     color::{Alpha, Rgb, BLACK, BLUEVIOLET, CYAN, MAGENTA, RED, YELLOW},
@@ -83,11 +83,13 @@ fn draw_ellipse(
         celestial_body_mass.clone(),
         G,
     );
-    let vel = ellipse.tangential_velocity(
-        Angle::from_degrees(t.into_inner() * 360.),
-        celestial_body_mass.clone(),
-        G,
-    );
+    let vel = ellipse
+        .tangential_velocity(
+            Angle::from_degrees(t.into_inner() * 360.),
+            celestial_body_mass.clone(),
+            G,
+        )
+        .unwrap();
 
     draw_vector_with_icon(
         draw,
@@ -182,7 +184,8 @@ fn draw_ellipse(
         .text(name)
         .color(BLACK);
 
-    let new_t = NonNeg::new(t.into_inner() / ellipse.perimeter() * new_ellipse.perimeter()).unwrap();
+    let new_t =
+        NonNeg::new(t.into_inner() / ellipse.perimeter() * new_ellipse.perimeter()).unwrap();
 
     draw_fading_ellipse(
         draw,

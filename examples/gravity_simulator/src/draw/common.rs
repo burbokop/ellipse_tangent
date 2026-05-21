@@ -1,4 +1,4 @@
-use std::{f32::consts::PI, ops::Deref as _, time::Duration};
+use std::{f32::consts::PI, ops::Deref as _, thread::yield_now, time::Duration};
 
 use burbomath::{Angle, Complex, NonNeg, Point, Vector};
 use ellipse_tangent::{ellipse::Ellipse, line::Line};
@@ -20,43 +20,52 @@ pub(crate) fn draw_fading_ellipse(
     color: Rgb,
     compensatory_scale: f32,
 ) {
-    let radius_x = *ellipse.a();
-    let radius_y = *ellipse.b();
+    if ellipse.x().is_finite() && ellipse.y().is_finite() {
+        assert!(ellipse.a().is_finite());
+        assert!(ellipse.b().is_finite());
+        assert!(ellipse.r().is_finite());
+        assert!(ellipse.i().is_finite());
+        assert!(t.into_inner().is_finite());
+        assert!(compensatory_scale.is_finite());
 
-    let num_points: usize = 1000; // Resolution of the ellipse
+        let radius_x = *ellipse.a();
+        let radius_y = *ellipse.b();
 
-    // Generate points and colors
-    let points = (0..=num_points).map(|i| {
-        // Angle from 0 to 2*PI
-        let angle = Angle::from_radians(map_range(i, 0, num_points, 0.0, PI * 2.0));
+        let num_points: usize = 1000; // Resolution of the ellipse
 
-        // Ellipse formula
+        // Generate points and colors
+        let points = (0..=num_points).map(|i| {
+            // Angle from 0 to 2*PI
+            let angle = Angle::from_radians(map_range(i, 0, num_points, 0.0, PI * 2.0));
 
-        let pos = Complex::from_uneven_polar((radius_x, radius_y).into(), angle)
-            * Complex::from_cartesian(*ellipse.r(), *ellipse.i())
-            * Complex::from_cartesian(0., 1.)
-            + Complex::from_cartesian(*ellipse.x(), *ellipse.y());
+            // Ellipse formula
 
-        // let x = angle.cos() * radius_x + ellipse.x;
-        // let y = angle.sin() * radius_y + ellipse.y;
+            let pos = Complex::from_uneven_polar((radius_x, radius_y).into(), angle)
+                * Complex::from_cartesian(*ellipse.r(), *ellipse.i())
+                * Complex::from_cartesian(0., 1.)
+                + Complex::from_cartesian(*ellipse.x(), *ellipse.y());
 
-        // Color changes with angle (0.0 to 1.0)
-        // [See Nannou HSL color documentation](https://docs.rs)
-        let point_time = i as f32 / num_points as f32;
+            // let x = angle.cos() * radius_x + ellipse.x;
+            // let y = angle.sin() * radius_y + ellipse.y;
 
-        let time = (-t.into_inner() - point_time).rem_euclid(1.);
+            // Color changes with angle (0.0 to 1.0)
+            // [See Nannou HSL color documentation](https://docs.rs)
+            let point_time = i as f32 / num_points as f32;
 
-        let color = Rgba::from_components((color.red, color.green, color.blue, time));
+            let time = (-t.into_inner() - point_time).rem_euclid(1.);
 
-        // let color = hsla(hue, 1.0, 0.5, 1.0);
+            let color = Rgba::from_components((color.red, color.green, color.blue, time));
 
-        (pt2(*pos.real(), *pos.imag()), color)
-    });
+            // let color = hsla(hue, 1.0, 0.5, 1.0);
 
-    // Draw the path with vertex-specific colors
-    draw.polyline()
-        .weight(compensatory_scale)
-        .points_colored(points);
+            (pt2(*pos.real(), *pos.imag()), color)
+        });
+
+        // Draw the path with vertex-specific colors
+        draw.polyline()
+            .weight(compensatory_scale)
+            .points_colored(points);
+    }
 }
 
 pub fn draw_line_by_kd<'a>(draw: &'a Draw, k: f32, d: f32) -> Drawing<'a, primitive::Line> {
@@ -137,10 +146,16 @@ pub fn draw_vector_with_icon<C>(
 
         let icon_radius = f32::min(vec.len().into_inner() / 2., icon_radius);
 
-        let points = [
+        let points: [nannou::glam::Vec2; 2] = [
             <(f32, f32)>::from(position).into(),
             <(f32, f32)>::from(position + vec - vec.norm() * icon_radius).into(),
         ];
+
+        assert!(points[0].x.is_finite());
+        assert!(points[0].y.is_finite());
+        assert!(points[1].x.is_finite());
+        assert!(points[1].y.is_finite());
+        assert!(compensatory_scale.is_finite());
 
         draw.line()
             .points(points[0], points[1])

@@ -16,6 +16,7 @@ burbomath = { git = "https://github.com/burbokop/burbomath.git" }
 
 [dev-dependencies]
 criterion = "0.5.1"
+approx = "0.5.1"
 
 [[bench]]
 name = "benchmark"
