@@ -1,4 +1,4 @@
-use ellipse_tangent::ellipse::Ellipse;
+use burbomath::Ellipse;
 use nannou::prelude::*;
 
 fn main() {

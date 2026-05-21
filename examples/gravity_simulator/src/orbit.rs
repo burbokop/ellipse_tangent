@@ -4,9 +4,8 @@ use std::{rc::Weak, time::Duration};
 use burbomath::{
     physics::{Kg, KgPerM3, M},
     time::RelativeDuration,
-    Angle, Vector,
+    Angle, Ellipse, Vector,
 };
-use ellipse_tangent::ellipse::Ellipse;
 use nannou::color::Rgba8;
 
 use crate::G;

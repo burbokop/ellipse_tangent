@@ -1,6 +1,6 @@
-use burbomath::Angle;
+use burbomath::{Angle, Ellipse};
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
-use ellipse_tangent::ellipse::Ellipse;
+use ellipse_tangent::ellipse::EllipseExF64 as _;
 
 fn common_tangents(c: &mut Criterion) {
     let ellipse0 = Ellipse::from_angle(

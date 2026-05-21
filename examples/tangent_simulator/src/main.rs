@@ -1,13 +1,8 @@
-use std::ops::Range;
-
-mod md_array;
-mod plot;
-
-use burbomath::{Angle, Point};
+use crate::md_array::MdArray;
+use burbomath::{Angle, Ellipse, Line, Point};
 use chromosome::{Chromosome, Fitness, FitnessSelector, SimulationIter};
 use ellipse_tangent::{
-    ellipse::{Ellipse, TangentDirection},
-    line::Line,
+    ellipse::{EllipseEx as _, EllipseExF64 as _, TangentDirection},
     utils::deg_to_rot_f64,
 };
 use nannou::{
@@ -16,8 +11,10 @@ use nannou::{
     prelude::*,
 };
 use nannou_egui::{self, egui, Egui};
+use std::ops::Range;
 
-use crate::md_array::MdArray;
+mod md_array;
+mod plot;
 
 #[derive(Debug)]
 struct TangentFitness {

@@ -1,7 +1,5 @@
-use std::{f32::consts::PI, ops::Deref as _, thread::yield_now, time::Duration};
-
-use burbomath::{Angle, Complex, NonNeg, Point, Vector};
-use ellipse_tangent::{ellipse::Ellipse, line::Line};
+use crate::FONT;
+use burbomath::{Angle, Complex, Ellipse, Line, NonNeg, Point, Vector};
 use nannou::{
     color::{IntoLinSrgba, Rgb, Rgba, Rgba8},
     draw::{primitive, properties::ColorScalar, Drawing},
@@ -9,8 +7,7 @@ use nannou::{
     math::map_range,
     Draw,
 };
-
-use crate::FONT;
+use std::{f32::consts::PI, ops::Deref as _, time::Duration};
 
 /// t - from 0 to 1
 pub(crate) fn draw_fading_ellipse(

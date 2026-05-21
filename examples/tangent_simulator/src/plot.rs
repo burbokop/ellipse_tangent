@@ -1,6 +1,7 @@
+use crate::Model;
+use burbomath::Line;
 use ellipse_tangent::{
-    ellipse::TangentDirection,
-    line::Line,
+    ellipse::{EllipseEx as _, TangentDirection},
     utils::{deg_to_rad_f64, mul_tuple2_f64},
 };
 use nannou::{
@@ -12,8 +13,6 @@ use nannou::{
     window::Id,
     App, Draw, Frame,
 };
-
-use crate::Model;
 
 pub fn new_plot_window(app: &App) -> Id {
     app.new_window()
