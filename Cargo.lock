@@ -258,7 +258,7 @@ checksum = "5d20789868f4b01b2f2caec9f5c4e0213b41e3e5702a50157d699ae31ced2fcb"
 [[package]]
 name = "burbomath"
 version = "0.0.1"
-source = "git+https://github.com/burbokop/burbomath.git#5b7678f3d626aff2ad4684f14d8b8305016fefe2"
+source = "git+https://github.com/burbokop/burbomath.git#c91e66c09b2c24cdb62cadcfed83d809b1044688"
 dependencies = [
  "burbomath_macro",
  "rand 0.9.4",
@@ -268,7 +268,7 @@ dependencies = [
 [[package]]
 name = "burbomath_macro"
 version = "0.0.1"
-source = "git+https://github.com/burbokop/burbomath.git#5b7678f3d626aff2ad4684f14d8b8305016fefe2"
+source = "git+https://github.com/burbokop/burbomath.git#c91e66c09b2c24cdb62cadcfed83d809b1044688"
 dependencies = [
  "litrs",
  "proc-macro2",
@@ -712,9 +712,9 @@ dependencies = [
 
 [[package]]
 name = "either"
-version = "1.15.0"
+version = "1.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
+checksum = "91622ff5e7162018101f2fea40d6ebf4a78bbe5a49736a2020649edf9693679e"
 
 [[package]]
 name = "ellipse_gravity_simulator"

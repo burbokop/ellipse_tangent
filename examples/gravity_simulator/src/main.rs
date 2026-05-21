@@ -36,14 +36,10 @@ use burbomath::{
     non_neg,
     physics::{Kg, M, M3},
     time::RelativeDuration,
-    Angle, Complex, DeltaAngle, NonNeg, Pi, Point, Vector,
+    Angle, Complex, DeltaAngle, Ellipse, Line, NonNeg, Pi, Point,
 };
 use core::f32;
-use ellipse_tangent::{
-    ellipse::{Ellipse, TangentDirection},
-    line::Line,
-    utils::deg_to_rot_f32,
-};
+use ellipse_tangent::{ellipse::TangentDirection, utils::deg_to_rot_f32};
 use nannou::{
     image::{DynamicImage, RgbaImage},
     prelude::*,
@@ -245,8 +241,8 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
         egui.set_elapsed_time(update.since_start);
         let _ctx = egui.begin_frame();
 
-        let theta0 = &mut model.old_stuff.e0.theta.degrees();
-        let theta1 = &mut model.old_stuff.e1.theta.degrees();
+        // let theta0 = &mut model.old_stuff.e0.theta.degrees();
+        // let theta1 = &mut model.old_stuff.e1.theta.degrees();
 
         // let theta_auto_change = &mut settings.theta_auto_change;
 
@@ -450,8 +446,8 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
         //     }
         // });
 
-        model.old_stuff.e0.theta = Angle::from_degrees(*theta0);
-        model.old_stuff.e1.theta = Angle::from_degrees(*theta1);
+        // model.old_stuff.e0.theta = Angle::from_degrees(*theta0);
+        // model.old_stuff.e1.theta = Angle::from_degrees(*theta1);
     }
 
     // model.old_stuff.common_tangents = model

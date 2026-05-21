@@ -13,8 +13,7 @@ use crate::{
     vessel::Vessel,
     Model, G, PALLETE,
 };
-use burbomath::{physics::Kg, Angle, NonNeg, Vector};
-use ellipse_tangent::ellipse::Ellipse;
+use burbomath::{physics::Kg, Angle, Ellipse, NonNeg, Vector};
 use nannou::{
     color::{Alpha, Rgb, BLACK, BLUEVIOLET, CYAN, MAGENTA, RED, YELLOW},
     Draw,

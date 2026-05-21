@@ -1,4 +1,6 @@
-use ellipse_tangent::{ellipse::TangentDirection, line::Line};
+use crate::Model;
+use burbomath::Line;
+use ellipse_tangent::ellipse::TangentDirection;
 use nannou::{
     color::{
         IntoLinSrgba, Srgb, BLACK, BLUE, DARKSLATEGREY, LIGHTBLUE, LIGHTPINK, RED, VIOLET, WHITE,
@@ -11,8 +13,6 @@ use nannou::{
     window::Id,
     App, Draw, Frame,
 };
-
-use crate::Model;
 
 pub fn new_plot_window(app: &App) -> Id {
     app.new_window()
