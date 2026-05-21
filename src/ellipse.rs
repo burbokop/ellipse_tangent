@@ -1,8 +1,8 @@
 use burbomath::{
-    Abs, Angle, Atan, Complex, Cos, Cube, DeltaAngle, FromDurationAsSecs, FromSecs, FromUSize,
-    IsNan, IsNeg, IsPositive, Log2, NonNeg, One, Pi, Point, Positive, RemEuclid, SignedSq,
-    SignedSqrt, Sin, Sq, Sqrt, Tan, TopLimit, Two, UnsignedContstant, Vector, Zero, lerp, non_neg,
-    physics::Kg, time::RelativeDuration, uconst,
+    Abs, Angle, Atan, Atan2, Complex, Cos, Cube, DeltaAngle, FromDurationAsSecs, FromSecs,
+    FromUSize, IsNan, IsNeg, IsPositive, Log2, MinusOne, NonNeg, One, Pi, Point, Positive,
+    RemEuclid, SignedSq, SignedSqrt, Sin, Sq, Sqrt, Tan, TopLimit, Two, UnsignedContstant, Vector,
+    Zero, lerp, non_neg, physics::Kg, time::RelativeDuration, uconst,
 };
 use core::f64;
 use num_traits::Pow;
@@ -504,6 +504,38 @@ impl<T> Ellipse<T> {
         )
     }
 
+    /// Returns anomaly of point on ellipse. Precision depends on how close the point is to the ellipse circumference
+    pub fn anomaly(&self, position: Point<T>) -> Angle<T>
+    where
+        T: Atan2<Output = T>
+            + Abs<Output = NonNeg<T>>
+            + Add<Output = T>
+            + Sub<Output = T>
+            + Mul<Output = T>
+            + Div<Output = T>
+            + Neg<Output = T>
+            + Sq<Output = NonNeg<T>>
+            + PartialOrd
+            + Clone
+            + IsNeg
+            + Zero
+            + Two
+            + Pi,
+        NonNeg<T>: Sqrt<Output = NonNeg<T>>,
+    {
+        let (x, y) = self.from_ws(position).into();
+
+        let a = T::atan2(
+            x / self.b.clone().abs().into_inner(),
+            y / self.a.clone().abs().into_inner(),
+        );
+
+        // Angle::from_radians(a)
+        a
+
+        // vec.angle()+ DeltaAngle::<T>::pi() / T::two()
+    }
+
     pub fn acc(
         &self,
         anomaly: Angle<T>,
@@ -536,7 +568,7 @@ impl<T> Ellipse<T> {
         anomaly: Angle<T>,
         central_body_mass: Kg<T>,
         gravitational_constant: T,
-    ) -> Vector<T>
+    ) -> Option<Vector<T>>
     where
         T: Abs<Output = NonNeg<T>>
             + Add<Output = T>
@@ -561,13 +593,13 @@ impl<T> Ellipse<T> {
 
         // let radius = self.radius(t);
         // println!("radius: {}", radius);
+
         let velocity_module = NonNeg::new(
             gravitational_constant
                 * central_body_mass.0
                 * (NonNeg::two() / vec_len - NonNeg::one() / self.a.clone().abs()),
         )
-        .ok()
-        .unwrap()
+        .ok()?
         .sqrt();
 
         // let tangent = (
@@ -584,7 +616,7 @@ impl<T> Ellipse<T> {
             self.a.clone().abs().into_inner() * -anomaly.sin(),
         )) * self.rotation();
 
-        vel.norm() * velocity_module.into_inner()
+        Some(vel.norm() * velocity_module.into_inner())
     }
 
     pub fn angular_velocity(
@@ -592,7 +624,7 @@ impl<T> Ellipse<T> {
         anomaly: Angle<T>,
         central_body_mass: Kg<T>,
         gravitational_constant: T,
-    ) -> DeltaAngle<T>
+    ) -> Option<DeltaAngle<T>>
     where
         T: Abs<Output = NonNeg<T>>
             + Add<Output = T>
@@ -613,11 +645,11 @@ impl<T> Ellipse<T> {
         let f0 = self.f0();
         let r = (p - f0).len().into_inner();
         let v = self
-            .tangential_velocity(anomaly, central_body_mass, gravitational_constant)
+            .tangential_velocity(anomaly, central_body_mass, gravitational_constant)?
             .len()
             .into_inner();
 
-        DeltaAngle::from_radians(v / r)
+        Some(DeltaAngle::from_radians(v / r))
     }
 
     pub fn f1_from_tangential_velocity(
@@ -922,11 +954,13 @@ impl<T> Ellipse<T> {
     {
         let f0 = self.f0();
         let p = self.point_on_ellipse(anomaly.clone());
-        let vel = self.tangential_velocity(
-            anomaly.clone(),
-            central_body_mass.clone(),
-            gravitational_constant.clone(),
-        );
+        let vel = self
+            .tangential_velocity(
+                anomaly.clone(),
+                central_body_mass.clone(),
+                gravitational_constant.clone(),
+            )
+            .unwrap();
         let (_, new_f1) = self.f1_from_tangential_velocity(
             anomaly,
             central_body_mass,
@@ -1744,7 +1778,8 @@ mod tests {
     use std::ops::Sub;
 
     use super::Ellipse;
-    use burbomath::{Abs, NonNeg, Sq as _};
+    use approx::AbsDiffEq;
+    use burbomath::{Abs, Angle, DeltaAngle, NonNeg, Sq as _};
     use num_traits::Pow as _;
 
     macro_rules! assert_eq_err {
@@ -1911,4 +1946,21 @@ mod tests {
     //     );
     //     assert_eq!(roots, Roots::Four([0.26496, 0.81798, 1.30545, 3.34813]))
     // }
+
+    #[test]
+    fn rots() {
+        use approx::assert_abs_diff_eq;
+        for i in 1..1000 {
+            let anomaly = Angle::from_radians(i as f32 / 1000. * std::f32::consts::PI * 2.);
+
+            let position = E1.point_on_ellipse(anomaly);
+            let anomaly2 = E1.anomaly(position);
+
+            assert_abs_diff_eq!(
+                anomaly.radians().into_inner(),
+                anomaly2.radians().into_inner(),
+                epsilon = 0.00001
+            );
+        }
+    }
 }
