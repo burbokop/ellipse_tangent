@@ -1,13 +1,12 @@
-use crate::FONT;
-use burbomath::{Angle, Complex, Ellipse, Line, NonNeg, Point, Vector};
+use burbomath::{Angle, Complex, Ellipse, NonNeg, Point, Vector};
 use nannou::{
-    color::{IntoLinSrgba, Rgb, Rgba, Rgba8},
-    draw::{primitive, properties::ColorScalar, Drawing},
+    color::{IntoLinSrgba, Rgb, Rgba},
+    draw::properties::ColorScalar,
     geom::pt2,
     math::map_range,
     Draw,
 };
-use std::{f32::consts::PI, ops::Deref as _, time::Duration};
+use std::{f32::consts::PI, time::Duration};
 
 /// t - from 0 to 1
 pub(crate) fn draw_fading_ellipse(
@@ -42,18 +41,11 @@ pub(crate) fn draw_fading_ellipse(
                 * Complex::from_cartesian(0., 1.)
                 + Complex::from_cartesian(*ellipse.x(), *ellipse.y());
 
-            // let x = angle.cos() * radius_x + ellipse.x;
-            // let y = angle.sin() * radius_y + ellipse.y;
-
             // Color changes with angle (0.0 to 1.0)
             // [See Nannou HSL color documentation](https://docs.rs)
             let point_time = i as f32 / num_points as f32;
-
             let time = (-t.into_inner() - point_time).rem_euclid(1.);
-
             let color = Rgba::from_components((color.red, color.green, color.blue, time));
-
-            // let color = hsla(hue, 1.0, 0.5, 1.0);
 
             (pt2(*pos.real(), *pos.imag()), color)
         });
@@ -62,57 +54,6 @@ pub(crate) fn draw_fading_ellipse(
         draw.polyline()
             .weight(compensatory_scale)
             .points_colored(points);
-    }
-}
-
-pub fn draw_line_by_kd<'a>(draw: &'a Draw, k: f32, d: f32) -> Drawing<'a, primitive::Line> {
-    let start = pt2(-400., -400.);
-    let end = pt2(400., 400.);
-
-    let x0 = start.x;
-    let x1 = end.x;
-
-    let y0 = k * x0 + d;
-    let y1 = k * x1 + d;
-
-    draw.line().points(pt2(x0, y0), pt2(x1, y1))
-}
-
-pub fn draw_line<'a>(draw: &'a Draw, line: Line<f32>) -> Drawing<'a, primitive::Line> {
-    draw_line_by_kd(draw, line.k, line.d)
-}
-
-pub fn draw_vector(
-    draw: &Draw,
-    name: &str,
-    position: Point<f32>,
-    vec: Vector<f32>,
-    color: Rgba8,
-    compensatory_scale: f32,
-) {
-    if position.x().is_finite()
-        && position.y().is_finite()
-        && vec.x().is_finite()
-        && vec.y().is_finite()
-    {
-        let points = [
-            <(f32, f32)>::from(position).into(),
-            <(f32, f32)>::from(position + vec).into(),
-        ];
-        draw.line()
-            .points(points[0], points[1])
-            .weight(1. * compensatory_scale)
-            .color(color);
-
-        let c = (points[0] + points[1]) / 2.;
-
-        // a⃗;
-        draw.x(c.x)
-            .y(c.y)
-            .scale(compensatory_scale)
-            .text(&format!("{}\u{20D7}: {:.2}", name, vec.len()))
-            .color(color)
-            .font(FONT.deref().clone());
     }
 }
 

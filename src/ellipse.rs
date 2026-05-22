@@ -11,58 +11,6 @@ use std::{
     ops::{Add, Div, DivAssign, Mul, Neg, Sub},
 };
 
-// pub mod vmath {
-//     use num_traits::Pow as _;
-
-//     #[inline(always)]
-//     pub fn complex_mul(ab: (T, T), cd: (T, T)) -> (T, T) {
-//         let (a, b) = ab;
-//         let (c, d) = cd;
-//         (a * c - b * d, a * d + b * c)
-//     }
-
-//     pub fn add(vec0: (T, T), vec1: (T, T)) -> (T, T) {
-//         let (x0, y0) = vec0;
-//         let (x1, y1) = vec1;
-//         (x0 + x1, y0 + y1)
-//     }
-
-//     pub fn sub(vec0: (T, T), vec1: (T, T)) -> (T, T) {
-//         let (x0, y0) = vec0;
-//         let (x1, y1) = vec1;
-//         (x0 - x1, y0 - y1)
-//     }
-
-//     pub fn left_perp(vec: (T, T)) -> (T, T) {
-//         let (x, y) = vec;
-//         (-y, x)
-//     }
-
-//     pub fn right_perp(vec: (T, T)) -> (T, T) {
-//         let (x, y) = vec;
-//         (y, -x)
-//     }
-
-//     pub fn len(vec: (T, T)) -> T {
-//         let (x, y) = vec;
-//         (x.sq() + y.sq()).sqrt()
-//     }
-
-//     pub fn norm(vec: (T, T)) -> (T, T) {
-//         div(vec, len(vec))
-//     }
-
-//     pub fn mul(vec: (T, T), s: T) -> (T, T) {
-//         let (x, y) = vec;
-//         (x * s, y * s)
-//     }
-
-//     pub fn div(vec: (T, T), s: T) -> (T, T) {
-//         let (x, y) = vec;
-//         (x / s, y / s)
-//     }
-// }
-
 // (x-x0)^2 / a^2 + (y-y0)^2 / b^2 = 1
 
 //x+yI = (r+iI)*(ux+uyI) = r*ux + r*uy*I + i*I*ux - i*uy = (r*ux - i*uy) + (r*uy + i*ux)*I

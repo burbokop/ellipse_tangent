@@ -333,7 +333,7 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
     fill_image(app, model);
 }
 
-fn draw_line_by_kd(draw: &Draw, k: f32, d: f32) -> Drawing<primitive::Line> {
+fn draw_line_by_kd<'a>(draw: &'a Draw, k: f32, d: f32) -> Drawing<'a, primitive::Line> {
     let start = pt2(-400., -400.);
     let end = pt2(400., 400.);
 
@@ -346,7 +346,7 @@ fn draw_line_by_kd(draw: &Draw, k: f32, d: f32) -> Drawing<primitive::Line> {
     draw.line().points(pt2(x0, y0), pt2(x1, y1))
 }
 
-fn draw_line(draw: &Draw, line: Line<f64>) -> Drawing<primitive::Line> {
+fn draw_line<'a>(draw: &'a Draw, line: Line<f64>) -> Drawing<'a, primitive::Line> {
     draw_line_by_kd(draw, line.k as f32, line.d as f32)
 }
 
@@ -366,11 +366,7 @@ fn raw_window_event<R: rand::RngCore>(
                     window.rect().h() as u32,
                 ))
             }
-            nannou::winit::event::WindowEvent::CursorMoved {
-                device_id,
-                position,
-                modifiers,
-            } => {
+            nannou::winit::event::WindowEvent::CursorMoved { position, .. } => {
                 model.cursor_pos = (
                     position.x / window_scale_factor as f64 + window_rect.x.start as f64,
                     -position.y / window_scale_factor as f64 - window_rect.y.start as f64,
@@ -381,12 +377,7 @@ fn raw_window_event<R: rand::RngCore>(
                     model.e1.update(model.cursor_pos);
                 }
             }
-            nannou::winit::event::WindowEvent::MouseInput {
-                device_id,
-                state,
-                button,
-                modifiers,
-            } => match state {
+            nannou::winit::event::WindowEvent::MouseInput { state, button, .. } => match state {
                 nannou::event::ElementState::Pressed => {
                     if model.e0.ellipse.eq()(model.cursor_pos) < 0. {
                         match button {

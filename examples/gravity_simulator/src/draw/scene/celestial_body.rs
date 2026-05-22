@@ -1,7 +1,6 @@
+use crate::orbit::CelestialBody;
 use burbomath::Point;
 use nannou::Draw;
-
-use crate::orbit::CelestialBody;
 
 pub fn draw_celestial_body(draw: &Draw, body: &CelestialBody, center: Point<f32>) {
     if center.x().is_finite() && center.y().is_finite() {

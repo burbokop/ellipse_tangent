@@ -1,10 +1,9 @@
-use std::time::Duration;
-
 use burbomath::{Angle, Point, Vector};
 use nannou::{
     color::{Rgba, Rgba8},
     Draw,
 };
+use std::time::Duration;
 
 pub fn draw_flickering_circle(
     draw: &Draw,

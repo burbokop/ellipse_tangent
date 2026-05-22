@@ -1,6 +1,5 @@
-use std::ops::Div;
-
 use nannou::math::num_traits::real::Real;
+use std::ops::Div;
 
 #[derive(Debug)]
 pub struct MdArray<T, const D: usize> {

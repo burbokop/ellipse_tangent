@@ -5,10 +5,8 @@ mod draw;
 mod event_handler;
 mod font_provider;
 mod manuever;
-mod md_array;
 mod orbit;
 mod palette;
-mod plot;
 mod utils;
 mod vessel;
 
@@ -36,15 +34,10 @@ use burbomath::{
     non_neg,
     physics::{Kg, M, M3},
     time::RelativeDuration,
-    Angle, Complex, DeltaAngle, Ellipse, Line, NonNeg, Pi, Point,
+    Angle, Complex, DeltaAngle, Ellipse, NonNeg, Pi,
 };
 use core::f32;
-use ellipse_tangent::{ellipse::TangentDirection, utils::deg_to_rot_f32};
-use nannou::{
-    image::{DynamicImage, RgbaImage},
-    prelude::*,
-    text::Font,
-};
+use nannou::{prelude::*, text::Font};
 use nannou_egui::{self, Egui};
 use rand::rngs::ThreadRng;
 use std::{marker::PhantomData, rc::Rc, sync::LazyLock, time::Duration};
@@ -55,60 +48,8 @@ static FONT: LazyLock<Font> = LazyLock::new(|| FP.font());
 const G: f32 = 6.67430e-11; // m3 * kg^(−1) * s^(−2);
 const PALLETE: [u32; 5] = [0xff230D4A, 0xff7678ED, 0xffF7B801, 0xffF18701, 0xffF35B04];
 
-struct Settings {
-    delta_v_angle: f32,
-    delta_v_len: f32,
-    theta_auto_change: bool,
-    thrust_acceleration: f32,
-    time_speed: f32,
-}
-
-struct EllipseState {
-    ellipse: Ellipse<f32>,
-    theta: Angle<f32>,
-    is_grabbed_to_move: bool,
-    is_grabbed_to_rotate: bool,
-    is_grabbed_to_scale: bool,
-}
-
-impl EllipseState {
-    fn update(&mut self, cursor_pos: Point<f32>) -> bool {
-        if self.is_grabbed_to_move {
-            self.ellipse = self.ellipse.with_center(cursor_pos);
-            true
-        } else if self.is_grabbed_to_rotate {
-            let rt = deg_to_rot_f32(*cursor_pos.x());
-            self.ellipse = self.ellipse.with_rotation(rt);
-            true
-        } else if self.is_grabbed_to_scale {
-            self.ellipse = self
-                .ellipse
-                .with_axes((cursor_pos - Point::origin()) / 10_f32);
-            true
-        } else {
-            false
-        }
-    }
-}
-
-struct Windows {
-    main_window: WindowId,
-    // plot_window: WindowId,
-}
-
-struct OldStuff {
-    e0: EllipseState,
-    e1: EllipseState,
-    common_tangents: Vec<(Line<f32>, TangentDirection)>,
-    settings: Settings,
-    image: DynamicImage,
-    plot_magnification: (f32, f32),
-    plot_magnification_change_axis_y: bool,
-}
-
 struct Model<R: rand::RngCore> {
     egui: Egui,
-    windows: Windows,
     vessel: Vessel,
     body: Rc<CelestialBody>,
     vessel_orbit: EllipticOrbit,
@@ -116,8 +57,6 @@ struct Model<R: rand::RngCore> {
     camera: Camera<f32>,
     event_handler_context: EventHandlerContext,
     time_speed: f32,
-
-    old_stuff: OldStuff,
     _r: PhantomData<R>,
 }
 
@@ -144,14 +83,7 @@ fn model(app: &App) -> Model<impl rand::RngCore> {
 
     let egui = Egui::from_window(&window);
 
-    let ellipse0 = Ellipse::from_angle(
-        (100., 100.).into(),
-        (40., 70.).into(),
-        Angle::from_degrees(15_f32),
-    );
-    // let ellipse1 = Ellipse::new(-30., -100., 20., 80., deg_to_rad(300.));
-
-    let ellipse1 = Ellipse::from_angle(
+    let ellipse = Ellipse::from_angle(
         (-30., -100.).into(),
         (2000., 1900.).into(),
         Angle::from_degrees(0_f32),
@@ -167,10 +99,6 @@ fn model(app: &App) -> Model<impl rand::RngCore> {
 
     Model {
         egui,
-        windows: Windows {
-            main_window: main_window_id,
-            // plot_window: plot_window_id,
-        },
         vessel: Vessel {
             kinematic_body: KinematicBody::new(
                 DeltaAngle::from_radians(1.),
@@ -183,44 +111,13 @@ fn model(app: &App) -> Model<impl rand::RngCore> {
         body: body.clone(),
         vessel_orbit: EllipticOrbit {
             body: Rc::downgrade(&body),
-            ellipse: ellipse1.clone(),
+            ellipse,
             anomaly: Angle::from_radians(0.),
         },
         manuever: None,
         camera: Camera::default(),
         event_handler_context: Default::default(),
         time_speed: 1.,
-        old_stuff: OldStuff {
-            e0: EllipseState {
-                ellipse: ellipse0,
-                theta: Angle::from_radians(0.),
-                is_grabbed_to_move: false,
-                is_grabbed_to_rotate: false,
-                is_grabbed_to_scale: false,
-            },
-            e1: EllipseState {
-                ellipse: ellipse1,
-                theta: Angle::from_radians(0.),
-                is_grabbed_to_move: false,
-                is_grabbed_to_rotate: false,
-                is_grabbed_to_scale: false,
-            },
-            common_tangents: vec![],
-            settings: Settings {
-                delta_v_angle: 0.,
-                delta_v_len: 1.,
-                theta_auto_change: true,
-                thrust_acceleration: 0.,
-                time_speed: 0.001,
-            },
-            image: DynamicImage::ImageRgba8(RgbaImage::new(
-                window.rect().w() as u32,
-                window.rect().h() as u32,
-            )),
-
-            plot_magnification: (1., 1.),
-            plot_magnification_change_axis_y: false,
-        },
         _r: PhantomData::<ThreadRng>::default(),
     }
 }
@@ -237,75 +134,10 @@ fn raw_window_event<R: rand::RngCore>(
 fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
     {
         let egui = &mut model.egui;
-        // let settings = &mut model.old_stuff.settings;
         egui.set_elapsed_time(update.since_start);
         let _ctx = egui.begin_frame();
 
-        // let theta0 = &mut model.old_stuff.e0.theta.degrees();
-        // let theta1 = &mut model.old_stuff.e1.theta.degrees();
-
-        // let theta_auto_change = &mut settings.theta_auto_change;
-
-        // let time_speed = &mut settings.time_speed;
-        // let time_since_start =
-        //     Duration::from_secs_f32(update.since_start.as_secs_f32() * *time_speed);
-
         let dt = Duration::from_secs_f32(update.since_last.as_secs_f32() * model.time_speed);
-
-        // let _e0_focal_len = (model.old_stuff.e0.ellipse.a().pow(2.)
-        //     - model.old_stuff.e0.ellipse.b().pow(2.))
-        // .sqrt();
-        // let _e1_focal_len = (model.old_stuff.e1.ellipse.a().pow(2.)
-        //     - model.old_stuff.e1.ellipse.b().pow(2.))
-        // .sqrt();
-
-        // let angular_velocity0 = model
-        //     .old_stuff
-        //     .e0
-        //     .ellipse
-        //     .angular_velocity(Angle::from_degrees(*theta0), model.body.mass.clone(), G)
-        //     .unwrap();
-        // let angular_velocity1 = model
-        //     .old_stuff
-        //     .e1
-        //     .ellipse
-        //     .angular_velocity(Angle::from_degrees(*theta1), model.body.mass.clone(), G)
-        //     .unwrap();
-        // if *theta_auto_change {
-        //     *theta0 += time_since_start.as_secs_f32() * angular_velocity0.degrees();
-        //     *theta1 += time_since_start.as_secs_f32() * angular_velocity1.degrees();
-
-        //     if settings.thrust_acceleration > 0.
-        //         && (settings.delta_v_len
-        //             - settings.thrust_acceleration * time_since_start.as_secs_f32())
-        //             >= 0.
-        //     {
-        //         let acc = Vector::from_polar(
-        //             settings.thrust_acceleration,
-        //             Angle::from_degrees(settings.delta_v_angle),
-        //         );
-        //         println!("acc: {:?}", acc);
-
-        //         model.old_stuff.e0.ellipse = model.old_stuff.e0.ellipse.accelerated(
-        //             Angle::from_degrees(*theta0),
-        //             model.body.mass.clone(),
-        //             G,
-        //             time_since_start,
-        //             acc,
-        //         );
-        //         model.old_stuff.e1.ellipse = model.old_stuff.e1.ellipse.accelerated(
-        //             Angle::from_degrees(*theta1),
-        //             model.body.mass.clone(),
-        //             G,
-        //             time_since_start,
-        //             acc,
-        //         );
-
-        //         settings.delta_v_len -=
-        //             settings.thrust_acceleration * time_since_start.as_secs_f32();
-        //         println!("settings.delta_v_len: {}", settings.delta_v_len);
-        //     }
-        // }
 
         if model.event_handler_context.center_on_vessel_mode() {
             let target_point = model
@@ -411,50 +243,7 @@ fn update<R: rand::RngCore>(app: &App, model: &mut Model<R>, update: Update) {
                 manuever.proceed(&model.vessel_orbit, G);
             }
         }
-
-        // egui::Window::new("Settings").show(&ctx, |ui| {
-        //     // Scale slider
-        //     ui.label(format!("E0: {:.2?}", &model.old_stuff.e0.ellipse));
-        //     ui.label(format!("E1: {:.2?}", &model.old_stuff.e1.ellipse));
-
-        //     ui.label(format!("ω0: {:.2?}°", &angular_velocity0.degrees()));
-        //     ui.label(format!("ω1: {:.2?}°", &angular_velocity1.degrees()));
-        //     ui.label("θ0:");
-        //     ui.add(egui::Slider::new(theta0, (0.)..=360.).step_by(1.));
-        //     ui.label("θ1:");
-        //     ui.add(egui::Slider::new(theta1, (0.)..=360.).step_by(1.));
-
-        //     ui.label("Δv θ:");
-        //     ui.add(egui::Slider::new(&mut settings.delta_v_angle, (0.)..=360.));
-        //     ui.label("|Δv|:");
-        //     ui.add(egui::Slider::new(&mut settings.delta_v_len, 0. ..=1.).step_by(0.01));
-        //     ui.label("ta:");
-        //     ui.add(
-        //         egui::Slider::new(&mut settings.thrust_acceleration, 0. ..=0.01).step_by(0.0001),
-        //     );
-
-        //     if ui
-        //         .button(if *theta_auto_change { "Stop" } else { "Auto" })
-        //         .clicked()
-        //     {
-        //         *theta_auto_change = !*theta_auto_change;
-        //     }
-
-        //     if *theta_auto_change {
-        //         ui.label("time speed:");
-        //         ui.add(egui::Slider::new(time_speed, (0.)..=0.001).step_by(0.00001));
-        //     }
-        // });
-
-        // model.old_stuff.e0.theta = Angle::from_degrees(*theta0);
-        // model.old_stuff.e1.theta = Angle::from_degrees(*theta1);
     }
-
-    // model.old_stuff.common_tangents = model
-    //     .old_stuff
-    //     .e0
-    //     .ellipse
-    //     .common_tangents(&model.old_stuff.e1.ellipse);
 }
 
 fn produce_ui_data<R: rand::RngCore>(model: &Model<R>) -> UIData {
@@ -555,12 +344,7 @@ fn view<R: rand::RngCore>(app: &App, model: &Model<R>, frame: Frame) {
 
     draw_scene(&draw, model, app.duration.since_start);
 
-    // let win = app.window(model.windows.main_window).unwrap();
-    // let window_size = win.inner_size_pixels();
-    // let window_rect = (0.,0., window_size.0 as f32, window_size.1 as f32).into();
-
     let window_rect = nannou_rect_to_rect(app.window_rect());
-
     let ui_data = produce_ui_data(model);
 
     draw_ui(&draw, window_rect, &ui_data, app.duration.since_start);

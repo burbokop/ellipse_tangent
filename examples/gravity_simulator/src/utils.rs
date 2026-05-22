@@ -1,10 +1,9 @@
-use std::{marker::PhantomData, ops::Sub};
-
 use burbomath::{Matrix, Rect};
 use nannou::{
     color::Rgba8,
     glam::{Mat3, Mat4},
 };
+use std::{marker::PhantomData, ops::Sub};
 
 pub(crate) fn matrix_to_mat3(x: Matrix<f32>) -> Mat3 {
     let [a, b, c, d, e, f, g, h, i] = x.into();
