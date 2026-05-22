@@ -1,17 +1,14 @@
-use std::time::Duration;
-
-use burbomath::{Rect, Size};
-use nannou::Draw;
-
 use crate::draw::ui::panels::{
     draw_controls_info, draw_flight_info, draw_manuever_info, draw_nav_circle, draw_throttle_bar,
     draw_time_info, draw_vessel_info, ControlsInfoData, FlightInfoData, ManueverInfoData,
     NavCircleData, ThrottleBarData, TimeInfoData, VesselInfoData,
 };
+use burbomath::{Rect, Size};
+use nannou::Draw;
+use std::time::Duration;
 
 pub mod icons;
 pub mod panels;
-
 pub struct UIData {
     pub nav_circle: NavCircleData,
     pub flight_info: FlightInfoData,

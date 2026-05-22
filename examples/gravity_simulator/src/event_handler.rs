@@ -210,69 +210,12 @@ pub fn event<R: rand::RngCore>(app: &App, model: &mut Model<R>, event: Event) {
                         ctx.mouse_position_in_world_space = &(!&model.camera.transformation())
                             .unwrap()
                             * &ctx.mouse_position.as_f32();
-
-                        // model.cursor_pos = pt2(
-                        //     mouse_position.x as f32 / window_scale_factor as f32 + window_rect.x.start,
-                        //     -mouse_position.y as f32 / window_scale_factor as f32 - window_rect.y.start,
-                        // );
-
-                        if !model.old_stuff.e0.update(ctx.mouse_position_in_world_space) {
-                            model.old_stuff.e1.update(ctx.mouse_position_in_world_space);
-                        }
                     }
-                    MousePressed(_button) => {
-                        // return;
-
-                        // if model.old_stuff.e0.ellipse.eq()(
-                        //     *model
-                        //         .event_handler_context
-                        //         .mouse_position_in_world_space
-                        //         .x() as f32,
-                        //     *model
-                        //         .event_handler_context
-                        //         .mouse_position_in_world_space
-                        //         .y() as f32,
-                        // ) < 0.
-                        // {
-                        //     match button {
-                        //         MouseButton::Left => model.old_stuff.e0.is_grabbed_to_move = true,
-                        //         MouseButton::Right => {
-                        //             model.old_stuff.e0.is_grabbed_to_rotate = true
-                        //         }
-                        //         MouseButton::Middle => {
-                        //             model.old_stuff.e0.is_grabbed_to_scale = true
-                        //         }
-                        //         _ => {}
-                        //     }
-                        // }
-                        // if model.old_stuff.e1.ellipse.eq()(
-                        //     *ctx.mouse_position_in_world_space.x() as f32,
-                        //     *ctx.mouse_position_in_world_space.y() as f32,
-                        // ) < 0.
-                        // {
-                        //     match button {
-                        //         MouseButton::Left => model.old_stuff.e1.is_grabbed_to_move = true,
-                        //         MouseButton::Right => {
-                        //             model.old_stuff.e1.is_grabbed_to_rotate = true
-                        //         }
-                        //         MouseButton::Middle => {
-                        //             model.old_stuff.e1.is_grabbed_to_scale = true
-                        //         }
-                        //         _ => {}
-                        //     }
-                        // }
-                    }
-                    MouseReleased(mouse_button) => {
-                        model.old_stuff.e0.is_grabbed_to_move = false;
-                        model.old_stuff.e0.is_grabbed_to_rotate = false;
-                        model.old_stuff.e0.is_grabbed_to_scale = false;
-                        model.old_stuff.e1.is_grabbed_to_move = false;
-                        model.old_stuff.e1.is_grabbed_to_rotate = false;
-                        model.old_stuff.e1.is_grabbed_to_scale = false;
-                    }
+                    MousePressed(_button) => {}
+                    MouseReleased(_mouse_button) => {}
                     MouseEntered => {}
                     MouseExited => {}
-                    MouseWheel(mouse_scroll_delta, touch_phase) => {
+                    MouseWheel(mouse_scroll_delta, _touch_phase) => {
                         let delta_to_y = |a: MouseScrollDelta| -> f32 {
                             match a {
                                 MouseScrollDelta::LineDelta(_, y) => y,
@@ -300,8 +243,7 @@ pub fn event<R: rand::RngCore>(app: &App, model: &mut Model<R>, event: Event) {
                             // zoom
                             if ctx.center_on_vessel_mode {
                                 let target_point = model
-                                    .old_stuff
-                                    .e1
+                                    .vessel_orbit
                                     .ellipse
                                     .point_on_ellipse(model.vessel_orbit.anomaly);
 
@@ -335,11 +277,11 @@ pub fn event<R: rand::RngCore>(app: &App, model: &mut Model<R>, event: Event) {
                     }
 
                     Resized { .. } => {}
-                    HoveredFile(path_buf) => todo!(),
-                    DroppedFile(path_buf) => todo!(),
+                    HoveredFile(_path_buf) => todo!(),
+                    DroppedFile(_path_buf) => todo!(),
                     HoveredFileCancelled => todo!(),
-                    Touch(touch_event) => todo!(),
-                    TouchPressure(touchpad_pressure) => todo!(),
+                    Touch(_touch_event) => todo!(),
+                    TouchPressure(_touchpad_pressure) => todo!(),
                     Focused => {}
                     Unfocused => {}
                     Closed => {}
@@ -347,8 +289,8 @@ pub fn event<R: rand::RngCore>(app: &App, model: &mut Model<R>, event: Event) {
                 None => {}
             }
         }
-        Event::DeviceEvent(device_id, device_event) => {}
-        Event::Update(update) => {}
+        Event::DeviceEvent(_device_id, _device_event) => {}
+        Event::Update(_update) => {}
         Event::Suspended => println!("Suspended: {:?}", event),
         Event::Resumed => println!("Resumed: {:?}", event),
     }

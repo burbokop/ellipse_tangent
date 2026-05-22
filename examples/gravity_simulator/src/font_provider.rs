@@ -1,6 +1,5 @@
 use font_loader::system_fonts;
 use nannou::text::Font;
-
 pub struct FontProvider {
     bytes: Vec<u8>,
 }

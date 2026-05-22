@@ -1,9 +1,7 @@
-use core::f32;
-
-use burbomath::{NonNeg, Pi, Two};
-use nannou::{color::Rgb, Draw};
-
 use crate::{draw::common::draw_fading_ellipse, orbit::EllipticOrbit};
+use burbomath::{NonNeg, Pi, Two};
+use core::f32;
+use nannou::{color::Rgb, Draw};
 
 pub fn draw_elliptic_orbit(
     draw: &Draw,

@@ -1,7 +1,3 @@
-use std::time::Duration;
-
-use nannou::Draw;
-
 use crate::{
     draw::{
         common::draw_vector_with_icon,
@@ -11,6 +7,8 @@ use crate::{
     palette,
     vessel::Vessel,
 };
+use nannou::Draw;
+use std::time::Duration;
 
 pub fn draw_vessel(
     draw: &Draw,
@@ -29,17 +27,10 @@ pub fn draw_vessel(
 
     let body = orbit.body.upgrade().unwrap();
 
-    // let f0 = orbit.ellipse.f0();
-    // let f1 = orbit.ellipse.f1();
-
     let p = orbit.ellipse.point_on_ellipse(orbit.anomaly);
     if !(p.x().is_finite() && p.y().is_finite()) {
         return;
     }
-
-    // let acc = orbit
-    //     .ellipse
-    //     .acc(orbit.anomaly, body.mass.clone(), gravitational_constant);
 
     let vel = orbit
         .ellipse
@@ -68,6 +59,4 @@ pub fn draw_vessel(
         compensatory_scale,
         duration_since_start,
     );
-
-    // draw_vector(draw, "a", p, acc, palette::RADIAL_COLOR, compensatory_scale);
 }
