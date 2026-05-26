@@ -60,7 +60,7 @@ jobs:
       run: PATH=$PATH:$ANDROID_HOME/platform-tools:$ANDROID_HOME/ndk/$ANDROID_NDK_VERSION/toolchains/llvm/prebuilt/linux-x86_64/bin cargo build --verbose --target armv7-linux-androideabi
 
     - name: Wait for emulator
-      run: adb wait-for-device shell 'while [[ -z $(getprop dev.bootcomplete) ]]; do sleep 1; done;'
+      run: timeout 300 bash -c -- 'adb wait-for-device shell "while [[ -z $(getprop dev.bootcomplete) ]]; do sleep 1; done;"'
 
     - name: Run tests
       run: PATH=$PATH:$ANDROID_HOME/platform-tools:$ANDROID_HOME/ndk/$ANDROID_NDK_VERSION/toolchains/llvm/prebuilt/linux-x86_64/bin cargo test --verbose --target armv7-linux-androideabi
