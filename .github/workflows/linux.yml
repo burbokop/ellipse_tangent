@@ -22,5 +22,8 @@ jobs:
     - name: Build ellipse tangent simulator
       run: cargo build --verbose --package ellipse_tangent_simulator
 
+    - name: Build ellipse gravity simulator
+      run: cargo build --verbose --package ellipse_gravity_simulator
+
     - name: Run tests
       run: cargo test --verbose
