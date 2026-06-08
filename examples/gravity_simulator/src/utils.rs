@@ -52,7 +52,7 @@ pub const fn color_from_hex(c: u32) -> Rgba8 {
             red: r,
             green: g,
             blue: b,
-            standard: PhantomData::default(),
+            standard: PhantomData,
         },
         alpha: a,
     }
