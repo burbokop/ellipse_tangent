@@ -1,6 +1,3 @@
-#![feature(const_default)]
-#![feature(const_trait_impl)]
-
 mod draw;
 mod event_handler;
 mod font_provider;
